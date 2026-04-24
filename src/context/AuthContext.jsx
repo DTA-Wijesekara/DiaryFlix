@@ -20,6 +20,12 @@ export function AuthProvider({ children }) {
       setLoading(false);
     }
     initAuth();
+
+    // Global session-expired handler: auth service dispatches this when the
+    // server returns 401 TOKEN_EXPIRED so the user is logged out everywhere.
+    const onExpired = () => setUser(null);
+    window.addEventListener('cinelog:session-expired', onExpired);
+    return () => window.removeEventListener('cinelog:session-expired', onExpired);
   }, []);
 
   const login = useCallback(async (email, password) => {

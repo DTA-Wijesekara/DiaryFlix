@@ -114,8 +114,11 @@ export default function LogWatch() {
     }));
   };
 
-  const handleSubmit = (e) => {
+  const [saving, setSaving] = useState(false);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    if (saving) return;
 
     if (!form.title.trim()) {
       setToast({ message: 'Please enter a movie title', type: 'error' });
@@ -126,17 +129,19 @@ export default function LogWatch() {
       ...form,
       actors: form.actors.filter(a => a.trim()),
       actresses: form.actresses.filter(a => a.trim()),
-      favouriteSongs: form.favouriteSongs.filter(s => s.name.trim()),
+      favouriteSongs: form.favouriteSongs.filter(s => s.name?.trim()),
       favouriteQuotes: form.favouriteQuotes.filter(q => q.trim()),
     };
 
-    addLog(entry);
-    setToast({ message: `"${form.title}" logged successfully! 🎬`, type: 'success' });
-
-    // Reset form after brief delay
-    setTimeout(() => {
-      navigate('/library');
-    }, 1500);
+    setSaving(true);
+    try {
+      await addLog(entry);
+      setToast({ message: `"${form.title}" saved to your diary`, type: 'success' });
+      setTimeout(() => navigate('/diary'), 900);
+    } catch (err) {
+      setToast({ message: err.message || 'Could not save entry', type: 'error' });
+      setSaving(false);
+    }
   };
 
   return (
@@ -438,9 +443,13 @@ export default function LogWatch() {
 
         {/* Submit */}
         <div className="log-submit">
-          <button type="submit" className="btn btn-primary btn-lg log-submit-btn">
-            <Save size={20} />
-            Save to Cinema Diary
+          <button
+            type="submit"
+            className="btn btn-primary btn-lg log-submit-btn"
+            disabled={saving}
+          >
+            <Save size={18} />
+            {saving ? 'Saving…' : 'Save entry'}
           </button>
         </div>
       </form>

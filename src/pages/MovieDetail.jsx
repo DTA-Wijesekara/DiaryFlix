@@ -42,16 +42,23 @@ export default function MovieDetail() {
     sinhala: 'var(--industry-sinhala)',
   }[log.industry] || 'var(--industry-other)';
 
-  const handleRewatch = () => {
-    const updated = incrementRewatch(log.id);
-    setLog(updated);
-    setToast({ message: `Rewatch #${updated.rewatchCount} logged! 🔁`, type: 'success' });
+  const handleRewatch = async () => {
+    try {
+      const updated = await incrementRewatch(log.id);
+      setLog(updated);
+      setToast({ message: `Rewatch #${updated.rewatchCount} recorded`, type: 'success' });
+    } catch (err) {
+      setToast({ message: err.message || 'Could not record rewatch', type: 'error' });
+    }
   };
 
-  const handleDelete = () => {
-    if (window.confirm(`Delete "${log.title}" from your diary?`)) {
-      deleteLog(log.id);
-      navigate('/library');
+  const handleDelete = async () => {
+    if (!window.confirm(`Delete "${log.title}" from your diary?`)) return;
+    try {
+      await deleteLog(log.id);
+      navigate('/diary');
+    } catch (err) {
+      setToast({ message: err.message || 'Could not delete entry', type: 'error' });
     }
   };
 

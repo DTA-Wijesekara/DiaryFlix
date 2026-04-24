@@ -1,44 +1,34 @@
-// CineLog — Storage Service (Hybrid)
-// Uses API for persistence, localStorage for synchronous reads in UI
+// CineLog — Storage service (hybrid).
+// The backend is the source of truth; localStorage is a synchronous cache for UI reads.
 
-import { getCurrentUserId, getToken } from './auth';
-
-const API_URL = 'http://localhost:5000/api';
+import { getCurrentUserId, apiFetch, getToken } from './auth';
 
 function getKeys() {
   const uid = getCurrentUserId() || 'anonymous';
   return {
     WATCH_LOG: `cinelog_watch_log_${uid}`,
     USER_PROFILE: `cinelog_user_profile_${uid}`,
-    TMDB_CACHE: 'cinelog_tmdb_cache', // shared across users
+    TMDB_CACHE: 'cinelog_tmdb_cache',
   };
 }
 
-// ---- Backend Sync ----
+// ---- Sync with server ----
 
 export async function fetchLogsFromServer() {
-    const token = getToken();
-    if (!token) return [];
-    
-    try {
-        const res = await fetch(`${API_URL}/logs`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (res.ok) {
-            const logs = await res.json();
-            saveLogs(logs);
-            updateProfileStats(logs);
-            return logs;
-        }
-    } catch (e) {
-        console.error("Failed to fetch logs from server", e);
-    }
-    return getAllLogs(); // fallback to local cache
+  if (!getToken()) return [];
+  try {
+    const logs = await apiFetch('/logs');
+    saveLogs(logs);
+    updateProfileStats(logs);
+    return logs;
+  } catch (e) {
+    console.error('Failed to fetch logs from server:', e.message);
+    return getAllLogs(); // cache fallback
+  }
 }
 
 // ---- Watch Log CRUD ----
 
-// Synchronous read from local cache
 export function getAllLogs() {
   try {
     const data = localStorage.getItem(getKeys().WATCH_LOG);
@@ -49,83 +39,51 @@ export function getAllLogs() {
 }
 
 export function getLogById(id) {
-  const logs = getAllLogs();
-  return logs.find(log => log.id === id) || null;
+  return getAllLogs().find(log => log.id === id) || null;
 }
 
 export async function addLog(entry) {
-  const token = getToken();
-  if (!token) throw new Error("Not authenticated");
-
-  const res = await fetch(`${API_URL}/logs`, {
-      method: 'POST',
-      headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify(entry)
-  });
-  
-  if (!res.ok) throw new Error("Failed to add log");
-  const newEntry = await res.json();
-  
+  const created = await apiFetch('/logs', { method: 'POST', body: entry });
   const logs = getAllLogs();
-  logs.unshift(newEntry);
+  logs.unshift(created);
   saveLogs(logs);
   updateProfileStats(logs);
-  return newEntry;
+  return created;
 }
 
 export async function updateLog(id, updates) {
-  // Not fully implemented in backend yet, but we'll mock the local update for now
-  // Ideally, you'd have a PUT /api/logs/:id endpoint
+  // Merge with existing cached record, then PUT the whole thing.
+  const current = getLogById(id);
+  if (!current) throw new Error('Log not found in local cache');
+  const merged = { ...current, ...updates };
+
+  const saved = await apiFetch(`/logs/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    body: merged,
+  });
+
   const logs = getAllLogs();
-  const index = logs.findIndex(log => log.id === id);
-  if (index === -1) return null;
-  
-  logs[index] = {
-    ...logs[index],
-    ...updates,
-    updatedAt: new Date().toISOString(),
-  };
+  const idx = logs.findIndex(l => l.id === id);
+  if (idx !== -1) logs[idx] = saved;
   saveLogs(logs);
   updateProfileStats(logs);
-  return logs[index];
+  return saved;
 }
 
 export async function deleteLog(id) {
-  const token = getToken();
-  if (token) {
-      await fetch(`${API_URL}/logs/${id}`, {
-          method: 'DELETE',
-          headers: { 'Authorization': `Bearer ${token}` }
-      });
-  }
-
-  let logs = getAllLogs();
-  logs = logs.filter(log => log.id !== id);
+  await apiFetch(`/logs/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  const logs = getAllLogs().filter(log => log.id !== id);
   saveLogs(logs);
   updateProfileStats(logs);
 }
 
 export async function incrementRewatch(id) {
-  const token = getToken();
-  if (token) {
-      await fetch(`${API_URL}/logs/${id}/rewatch`, {
-          method: 'PUT',
-          headers: { 'Authorization': `Bearer ${token}` }
-      });
-  }
-
+  const updated = await apiFetch(`/logs/${encodeURIComponent(id)}/rewatch`, { method: 'PUT' });
   const logs = getAllLogs();
-  const index = logs.findIndex(log => log.id === id);
-  if (index === -1) return null;
-  
-  logs[index].rewatchCount = (logs[index].rewatchCount || 0) + 1;
-  logs[index].lastRewatched = new Date().toISOString();
-  logs[index].updatedAt = new Date().toISOString();
+  const idx = logs.findIndex(l => l.id === id);
+  if (idx !== -1) logs[idx] = updated;
   saveLogs(logs);
-  return logs[index];
+  return updated;
 }
 
 // ---- Filtering ----
@@ -154,28 +112,25 @@ export function searchLogs(query) {
 
 export function getStats() {
   const logs = getAllLogs();
-  
+
   const totalWatched = logs.length;
   const totalRewatches = logs.reduce((sum, l) => sum + (l.rewatchCount || 0), 0);
   const avgRating = logs.length > 0
     ? (logs.reduce((sum, l) => sum + (l.rating || 0), 0) / logs.length).toFixed(1)
     : 0;
 
-  // By industry
   const byIndustry = {};
   logs.forEach(l => {
     const ind = l.industry || 'other';
     byIndustry[ind] = (byIndustry[ind] || 0) + 1;
   });
 
-  // By mood
   const byMood = {};
   logs.forEach(l => {
     const mood = l.moodBefore || 'unknown';
     byMood[mood] = (byMood[mood] || 0) + 1;
   });
 
-  // By month (last 12 months)
   const byMonth = {};
   const hoursByMonth = {};
   const now = new Date();
@@ -191,7 +146,7 @@ export function getStats() {
     if (l.dateWatched) {
       const d = new Date(l.dateWatched);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      if (byMonth.hasOwnProperty(key)) {
+      if (Object.prototype.hasOwnProperty.call(byMonth, key)) {
         byMonth[key]++;
         hoursByMonth[key] += parseFloat(((l.runtime || 0) / 60).toFixed(2));
       }
@@ -202,7 +157,7 @@ export function getStats() {
 
   let avgHoursPerDay = '0.0';
   if (logs.length > 0) {
-    const dates = logs.map(l => new Date(l.dateWatched || l.createdAt || new Date())).filter(d => !isNaN(d));
+    const dates = logs.map(l => new Date(l.dateWatched || l.createdAt || new Date())).filter(d => !Number.isNaN(d.getTime()));
     if (dates.length > 0) {
       const earliest = new Date(Math.min(...dates));
       const latest = new Date();
@@ -211,26 +166,21 @@ export function getStats() {
     }
   }
 
-  // Rating distribution
   const ratingDist = {};
   for (let i = 1; i <= 10; i++) ratingDist[i] = 0;
   logs.forEach(l => {
-    if (l.rating >= 1 && l.rating <= 10) {
-      ratingDist[l.rating]++;
-    }
+    if (l.rating >= 1 && l.rating <= 10) ratingDist[l.rating]++;
   });
 
-  // Top rated
   const topRated = [...logs]
     .filter(l => l.rating)
     .sort((a, b) => b.rating - a.rating)
     .slice(0, 5);
 
-  // Top actors/actresses
   const actorCounts = {};
   logs.forEach(l => {
     [...(l.actors || []), ...(l.actresses || [])].forEach(name => {
-      const n = name.trim();
+      const n = (name || '').trim();
       if (n) actorCounts[n] = (actorCounts[n] || 0) + 1;
     });
   });
@@ -238,7 +188,6 @@ export function getStats() {
     .sort((a, b) => b[1] - a[1])
     .slice(0, 10);
 
-  // Most watched directors
   const dirCounts = {};
   logs.forEach(l => {
     if (l.director?.trim()) {
@@ -249,9 +198,9 @@ export function getStats() {
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5);
 
-  // Watch streak (consecutive days)
   const watchDates = [...new Set(logs.map(l => l.dateWatched).filter(Boolean))].sort();
-  let maxStreak = 0, currentStreak = 0;
+  let maxStreak = 0;
+  let currentStreak = 0;
   for (let i = 0; i < watchDates.length; i++) {
     if (i === 0) { currentStreak = 1; }
     else {
@@ -263,7 +212,6 @@ export function getStats() {
     maxStreak = Math.max(maxStreak, currentStreak);
   }
 
-  // Mood-to-rating correlation
   const moodRatings = {};
   logs.forEach(l => {
     if (l.moodBefore && l.rating) {
@@ -277,25 +225,15 @@ export function getStats() {
   });
 
   return {
-    totalWatched,
-    totalRewatches,
-    avgRating,
-    byIndustry,
-    byMood,
-    byMonth,
-    hoursByMonth,
-    totalHoursWatched,
-    avgHoursPerDay,
-    ratingDist,
-    topRated,
-    topActors,
-    topDirectors,
-    maxStreak,
-    moodAvgRating,
+    totalWatched, totalRewatches, avgRating,
+    byIndustry, byMood, byMonth, hoursByMonth,
+    totalHoursWatched, avgHoursPerDay,
+    ratingDist, topRated, topActors, topDirectors,
+    maxStreak, moodAvgRating,
   };
 }
 
-// ---- User Profile ----
+// ---- User Profile (local cache only) ----
 
 export function getProfile() {
   try {
@@ -333,8 +271,24 @@ export function cacheTMDB(tmdbId, data) {
       localStorage.setItem(getKeys().TMDB_CACHE, cacheStr);
     }
   } catch {
-    // silently fail
+    // noop
   }
+}
+
+// ---- Import / Export ----
+
+export function exportToJSON() {
+  return JSON.stringify({
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    logs: getAllLogs(),
+    profile: getProfile(),
+  }, null, 2);
+}
+
+export function importFromCSV(/* csvText */) {
+  // Placeholder: CSV import would POST each parsed row to /api/logs.
+  return [];
 }
 
 // ---- Helpers ----
@@ -348,6 +302,3 @@ function updateProfileStats(logs) {
   profile.totalWatched = logs.length;
   localStorage.setItem(getKeys().USER_PROFILE, JSON.stringify(profile));
 }
-
-export function importFromCSV(csvText) { return []; }
-export function exportToJSON() { return "{}"; }
