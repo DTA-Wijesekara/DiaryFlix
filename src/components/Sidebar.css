@@ -1,0 +1,223 @@
+.sidebar {
+  position: fixed;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: var(--sidebar-w);
+  background: var(--paper-elevated);
+  border-right: 1px solid var(--rule);
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-5) var(--space-4);
+  z-index: 50;
+  overflow-y: auto;
+}
+
+/* --- Brand --- */
+
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 4px var(--space-6);
+  margin-bottom: var(--space-5);
+  border-bottom: 1px solid var(--rule);
+}
+
+.sidebar-brand-mark {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--r-sm);
+  background: var(--ink);
+  color: var(--paper-elevated);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.sidebar-brand-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.1;
+}
+
+.sidebar-brand-name {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.12rem;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+
+.sidebar-brand-tagline {
+  font-size: 0.7rem;
+  color: var(--ink-50);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-top: 2px;
+  font-family: var(--font-mono);
+}
+
+/* --- Nav --- */
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
+  border-radius: var(--r-sm);
+  color: var(--ink-70);
+  font-size: 0.88rem;
+  font-weight: 500;
+  transition: background var(--t-fast), color var(--t-fast);
+  text-decoration: none;
+  position: relative;
+  letter-spacing: -0.005em;
+}
+
+.sidebar-link:hover {
+  background: var(--blue-50);
+  color: var(--blue);
+}
+
+.sidebar-link.active {
+  background: var(--ink);
+  color: var(--paper-elevated);
+}
+
+.sidebar-link.active svg {
+  color: var(--paper-elevated);
+}
+
+.sidebar-divider {
+  height: 1px;
+  background: var(--rule);
+  margin: 12px 8px;
+}
+
+.sidebar-link-admin.active {
+  background: var(--blue-700);
+  color: #fff;
+}
+
+/* --- User footer --- */
+
+.sidebar-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: var(--space-3) var(--space-2);
+  border-top: 1px solid var(--rule);
+  margin-top: var(--space-4);
+}
+
+.sidebar-user-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--blue-50);
+  color: var(--blue);
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 0.82rem;
+  flex-shrink: 0;
+  letter-spacing: 0;
+}
+
+.sidebar-user-details {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+  line-height: 1.2;
+}
+
+.sidebar-user-name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-user-role {
+  font-size: 0.68rem;
+  color: var(--ink-50);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-top: 2px;
+}
+
+.sidebar-logout-btn {
+  background: transparent;
+  border: 1px solid var(--rule);
+  color: var(--ink-50);
+  cursor: pointer;
+  padding: 7px;
+  border-radius: var(--r-sm);
+  display: grid;
+  place-items: center;
+  transition: all var(--t-fast);
+  flex-shrink: 0;
+}
+
+.sidebar-logout-btn:hover {
+  background: rgba(185, 28, 28, 0.06);
+  color: var(--danger);
+  border-color: rgba(185, 28, 28, 0.2);
+}
+
+/* --- Mobile bottom nav --- */
+
+.mobile-nav {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--paper-elevated);
+  border-top: 1px solid var(--rule);
+  padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0));
+  z-index: 50;
+  justify-content: space-around;
+  box-shadow: 0 -2px 8px rgba(15, 23, 42, 0.04);
+}
+
+.mobile-nav-link {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 6px 8px;
+  border-radius: var(--r-sm);
+  color: var(--ink-50);
+  font-size: 0.62rem;
+  font-weight: 500;
+  text-decoration: none;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  min-width: 58px;
+  transition: color var(--t-fast);
+}
+
+.mobile-nav-link.active {
+  color: var(--blue);
+}
+
+@media (max-width: 1024px) {
+  .sidebar { display: none; }
+  .mobile-nav { display: flex; }
+}

@@ -1,0 +1,264 @@
+/* SmartRewatch Page Styles */
+.smart-rewatch {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.rewatch-mood-section {
+  padding: var(--space-xl);
+  margin-bottom: var(--space-xl);
+}
+
+.rewatch-mood-section h3 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+
+.rewatch-mood-section h3 svg {
+  color: var(--accent-primary);
+}
+
+/* Suggestions */
+.rewatch-suggestions {
+  margin-bottom: var(--space-2xl);
+}
+
+.rewatch-suggestions-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-lg);
+}
+
+.rewatch-suggestions-title svg {
+  color: var(--accent-primary);
+}
+
+.rewatch-count {
+  background: var(--accent-primary-glow);
+  color: var(--accent-primary);
+  padding: 2px 10px;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 700;
+  margin-left: auto;
+}
+
+.rewatch-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.rewatch-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+  padding: var(--space-md);
+}
+
+.rewatch-card-poster {
+  width: 80px;
+  height: 120px;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform var(--transition-fast);
+}
+
+.rewatch-card-poster:hover {
+  transform: scale(1.05);
+}
+
+.rewatch-card-poster img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.rewatch-card-poster-ph {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-input);
+  font-family: var(--font-heading);
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--text-tertiary);
+}
+
+.rewatch-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.rewatch-card-info h4 {
+  cursor: pointer;
+  font-size: 1.05rem;
+  margin-bottom: 4px;
+  transition: color var(--transition-fast);
+}
+
+.rewatch-card-info h4:hover {
+  color: var(--accent-primary);
+}
+
+.rewatch-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  font-size: 0.78rem;
+  color: var(--text-tertiary);
+  margin-bottom: 6px;
+}
+
+.rewatch-card-meta span {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.rewatch-card-meta svg {
+  color: var(--accent-primary);
+}
+
+.rewatch-card-reason {
+  font-size: 0.82rem;
+  color: var(--accent-secondary);
+  font-style: italic;
+  margin-bottom: 4px;
+}
+
+.rewatch-card-score {
+  font-size: 0.72rem;
+  color: var(--text-tertiary);
+}
+
+.rewatch-card-score strong {
+  color: var(--accent-primary);
+  font-family: var(--font-heading);
+}
+
+.rewatch-card-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  flex-shrink: 0;
+}
+
+.rewatch-accept {
+  border-radius: var(--radius-full) !important;
+  width: 44px;
+  height: 44px;
+}
+
+.rewatch-dismiss {
+  border-radius: var(--radius-full) !important;
+  width: 44px;
+  height: 44px;
+}
+
+/* Mood Insights */
+.rewatch-insights {
+  margin-top: var(--space-2xl);
+}
+
+.rewatch-insights > h3 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-lg);
+}
+
+.rewatch-insights > h3 svg {
+  color: var(--accent-primary);
+}
+
+.insights-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--space-md);
+}
+
+.insight-card {
+  padding: var(--space-lg);
+}
+
+.insight-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.insight-emoji {
+  font-size: 1.5rem;
+}
+
+.insight-mood {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 1.05rem;
+  text-transform: capitalize;
+  color: var(--text-primary);
+}
+
+.insight-stats {
+  display: flex;
+  gap: var(--space-lg);
+  margin-bottom: var(--space-md);
+}
+
+.insight-stat {
+  display: flex;
+  flex-direction: column;
+}
+
+.insight-stat-value {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--text-primary);
+}
+
+.insight-stat-label {
+  font-size: 0.7rem;
+  color: var(--text-tertiary);
+}
+
+.insight-top {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.insight-top-label {
+  font-size: 0.72rem;
+  color: var(--text-tertiary);
+  margin-bottom: 2px;
+}
+
+.insight-top-movie {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 640px) {
+  .rewatch-card {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .rewatch-card-actions {
+    flex-direction: row;
+  }
+
+  .rewatch-card-meta {
+    justify-content: center;
+  }
+}

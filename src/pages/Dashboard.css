@@ -1,0 +1,386 @@
+/* Dashboard — editorial, date-centric */
+
+.dashboard { max-width: var(--content-max); margin: 0 auto; }
+
+/* --- Masthead --- */
+
+.dash-masthead {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-5);
+  padding-bottom: var(--space-6);
+  margin-bottom: var(--space-7);
+  border-bottom: 2px solid var(--ink);
+  flex-wrap: wrap;
+}
+
+.dash-date {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--ink-50);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: var(--space-2);
+}
+
+.dash-hello {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: clamp(1.9rem, 4vw, 2.8rem);
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.dash-name {
+  font-style: italic;
+  font-weight: 600;
+}
+
+.dash-subtitle {
+  margin-top: var(--space-3);
+  color: var(--ink-50);
+  max-width: 56ch;
+  font-size: 0.98rem;
+}
+
+.dash-masthead-actions {
+  display: flex;
+  gap: var(--space-3);
+}
+
+/* --- Anniversary banner --- */
+
+.dash-anniversary {
+  margin-bottom: var(--space-6);
+  padding: var(--space-4) var(--space-5);
+  background: var(--blue-50);
+  border: 1px solid var(--blue-100);
+  border-radius: var(--r-md);
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-5);
+  align-items: center;
+}
+
+.dash-anniversary-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--blue);
+  white-space: nowrap;
+}
+
+.dash-anniversary-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+.dash-anniversary-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 4px 12px;
+  border-radius: var(--r-sm);
+  background: var(--paper-elevated);
+  border: 1px solid var(--blue-100);
+  transition: border-color var(--t-fast);
+}
+
+.dash-anniversary-item:hover {
+  border-color: var(--blue);
+}
+
+.dash-anniversary-years {
+  font-size: 0.72rem;
+  color: var(--blue);
+  letter-spacing: 0.04em;
+  font-weight: 600;
+}
+
+.dash-anniversary-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 0.94rem;
+  color: var(--ink);
+}
+
+.dash-anniversary-rating {
+  font-size: 0.72rem;
+  color: var(--ink-50);
+}
+
+/* --- Stats strip --- */
+
+.dash-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0;
+  margin-bottom: var(--space-7);
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+
+.dash-stat {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-5) var(--space-5);
+  border-left: 1px solid var(--rule);
+}
+.dash-stat:first-child { border-left: none; }
+
+.dash-stat-label {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--ink-50);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: var(--space-3);
+}
+
+.dash-stat-value {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 4vw, 2.6rem);
+  font-weight: 500;
+  color: var(--ink);
+  line-height: 1;
+  font-feature-settings: "tnum";
+  letter-spacing: -0.02em;
+}
+
+.dash-stat-hint {
+  font-size: 0.78rem;
+  color: var(--ink-50);
+  margin-top: var(--space-2);
+}
+
+/* --- Section headings --- */
+
+.dash-section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--rule);
+}
+
+.dash-section-head .eyebrow { display: block; margin-bottom: 2px; }
+
+.dash-section-title {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 1.45rem;
+  color: var(--ink);
+}
+
+.dash-section-link {
+  font-size: 0.85rem;
+  color: var(--blue);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+.dash-section-link:hover { text-decoration: underline; }
+
+/* --- Main content grid --- */
+
+.dash-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  gap: var(--space-7);
+  margin-bottom: var(--space-7);
+}
+
+.dash-heatmap, .dash-recent {
+  min-width: 0;
+}
+
+/* --- Recent entries list --- */
+
+.dash-recent-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.dash-recent-item {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  gap: var(--space-4);
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid var(--rule);
+  transition: background var(--t-fast);
+  align-items: center;
+}
+.dash-recent-item:hover { background: var(--blue-50); }
+
+.dash-recent-list li:last-child .dash-recent-item { border-bottom: none; }
+
+.dash-recent-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.dash-recent-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.02rem;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  letter-spacing: -0.01em;
+}
+
+.dash-recent-meta {
+  font-size: 0.82rem;
+  color: var(--ink-50);
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.dash-recent-rating { color: var(--blue); font-weight: 500; }
+
+/* Date stamp (a little calendar-page block) */
+
+.date-stamp {
+  width: 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 6px 4px;
+  background: var(--paper-elevated);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--r-sm);
+  box-shadow: 0 1px 0 var(--rule);
+}
+
+.date-stamp-empty { color: var(--ink-30); justify-content: center; padding: 14px 4px; }
+
+.date-stamp-day {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.4rem;
+  color: var(--ink);
+  line-height: 1;
+  font-feature-settings: "tnum";
+}
+
+.date-stamp-mon {
+  font-size: 0.58rem;
+  color: var(--blue);
+  letter-spacing: 0.12em;
+  font-weight: 600;
+  margin-top: 1px;
+}
+
+.date-stamp-year {
+  font-size: 0.6rem;
+  color: var(--ink-50);
+  margin-top: 1px;
+}
+
+/* --- Rewatch band --- */
+
+.dash-rewatch {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: var(--space-6);
+  padding: var(--space-5);
+  background: var(--paper-elevated);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-md);
+  align-items: center;
+  margin-bottom: var(--space-6);
+}
+
+.dash-rewatch-poster {
+  width: 140px;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow-2);
+}
+
+.dash-rewatch-poster-empty {
+  display: grid;
+  place-items: center;
+  background: var(--paper-warm);
+  color: var(--ink-30);
+}
+
+.dash-rewatch-body { min-width: 0; }
+
+.dash-rewatch-body .eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--blue);
+  margin-bottom: var(--space-2);
+}
+
+.dash-rewatch-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.7rem;
+  color: var(--ink);
+  margin-bottom: var(--space-3);
+  letter-spacing: -0.01em;
+}
+
+.dash-rewatch-reason {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 1.02rem;
+  color: var(--ink-70);
+  max-width: 58ch;
+  margin-bottom: var(--space-4);
+}
+
+.dash-rewatch-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.dash-rewatch-meta {
+  font-size: 0.78rem;
+  color: var(--ink-50);
+  letter-spacing: 0.02em;
+}
+
+/* --- Responsive --- */
+
+@media (max-width: 1024px) {
+  .dash-grid { grid-template-columns: 1fr; }
+  .dash-stats { grid-template-columns: repeat(2, 1fr); }
+  .dash-stat:nth-child(3) { border-left: none; border-top: 1px solid var(--rule); }
+  .dash-stat:nth-child(4) { border-top: 1px solid var(--rule); }
+}
+
+@media (max-width: 640px) {
+  .dash-masthead { flex-direction: column; align-items: flex-start; }
+  .dash-stats { grid-template-columns: 1fr; }
+  .dash-stat { border-left: none; border-top: 1px solid var(--rule); }
+  .dash-stat:first-child { border-top: none; }
+  .dash-anniversary { grid-template-columns: 1fr; }
+  .dash-rewatch {
+    grid-template-columns: 100px 1fr;
+    gap: var(--space-4);
+    padding: var(--space-4);
+  }
+  .dash-rewatch-poster { width: 100px; }
+  .dash-rewatch-title { font-size: 1.3rem; }
+}

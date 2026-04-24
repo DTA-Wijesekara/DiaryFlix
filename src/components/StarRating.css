@@ -1,0 +1,50 @@
+.star-rating {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.star-rating-stars {
+  display: flex;
+  gap: 3px;
+}
+
+.star-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  color: var(--ink-15);
+  transition: transform var(--t-fast), color var(--t-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.star-btn:not(:disabled):hover {
+  transform: scale(1.18);
+}
+
+.star-btn.filled svg,
+.star-btn.preview svg {
+  fill: var(--blue);
+  color: var(--blue);
+}
+
+.star-btn.preview svg {
+  opacity: 0.5;
+}
+
+.star-rating-value {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--blue);
+  min-width: 44px;
+  letter-spacing: 0.02em;
+}
+
+.star-rating.readonly .star-btn {
+  cursor: default;
+  pointer-events: none;
+}

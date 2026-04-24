@@ -1,0 +1,134 @@
+.log-watch {
+  max-width: var(--reading-max);
+  margin: 0 auto;
+}
+
+.log-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.log-section {
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.log-section-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.08rem;
+  margin-bottom: var(--space-2);
+  color: var(--ink);
+  letter-spacing: -0.005em;
+}
+
+.log-section-title svg { color: var(--blue); }
+
+.log-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
+.log-type-toggle {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.log-type-toggle .btn { flex: 1; }
+
+.log-array-row {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.log-array-row .input { flex: 1; }
+
+.log-add-field {
+  font-size: 0.8rem;
+  color: var(--blue) !important;
+  align-self: flex-start;
+  padding: 4px 0 !important;
+}
+
+.log-selected-preview {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  background: var(--paper-warm);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-md);
+}
+
+.log-selected-poster {
+  width: 90px;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow-1);
+}
+
+.log-selected-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.log-selected-info h4 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.05rem;
+  color: var(--ink);
+}
+
+.log-selected-year {
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  color: var(--ink-50);
+}
+
+.log-selected-overview {
+  font-size: 0.85rem;
+  color: var(--ink-70);
+  line-height: 1.5;
+  margin-top: 4px;
+}
+
+.log-selected-genres {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.log-selected-genres .chip {
+  font-size: 0.68rem;
+  padding: 2px 8px;
+}
+
+.log-submit {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-4) 0;
+}
+
+.log-submit-btn {
+  min-width: 260px;
+}
+
+@media (max-width: 640px) {
+  .log-section { padding: var(--space-4); }
+  .log-row { grid-template-columns: 1fr; }
+  .log-selected-preview { grid-template-columns: 70px 1fr; }
+  .log-selected-poster { width: 70px; }
+}

@@ -1,0 +1,53 @@
+.industry-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.industry-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+}
+
+.industry-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.9;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.dot-all        { background: var(--ink); }
+.dot-bollywood  { background: var(--industry-bollywood); }
+.dot-tollywood  { background: var(--industry-tollywood); }
+.dot-kollywood  { background: var(--industry-kollywood); }
+.dot-mollywood  { background: var(--industry-mollywood); }
+.dot-hollywood  { background: var(--industry-hollywood); }
+.dot-sandalwood { background: var(--industry-sandalwood); }
+.dot-sinhala    { background: var(--industry-sinhala); }
+.dot-other      { background: var(--industry-other); }
+
+.industry-count {
+  background: var(--paper-warm);
+  padding: 0 6px;
+  border-radius: var(--r-full);
+  font-size: 0.66rem;
+  min-width: 20px;
+  text-align: center;
+  color: var(--ink-50);
+  font-family: var(--font-mono);
+  font-weight: 500;
+}
+
+.industry-chip.active .industry-count {
+  background: rgba(255, 255, 255, 0.18);
+  color: var(--paper-elevated);
+}
+
+.industry-chip.active .industry-dot {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.25);
+}

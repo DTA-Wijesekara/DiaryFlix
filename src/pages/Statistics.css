@@ -1,0 +1,211 @@
+/* Statistics Page Styles */
+.statistics {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.stats-top-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-md);
+  margin-bottom: var(--space-2xl);
+}
+
+.stats-highlight {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-lg) var(--space-xl);
+}
+
+.stats-highlight svg {
+  color: var(--accent-primary);
+  flex-shrink: 0;
+}
+
+.stats-highlight-value {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 2rem;
+  color: var(--text-primary);
+  display: block;
+  line-height: 1.1;
+}
+
+.stats-highlight-label {
+  font-size: 0.78rem;
+  color: var(--text-tertiary);
+  display: block;
+}
+
+/* Chart Grid */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-md);
+}
+
+.stats-chart-card {
+  padding: var(--space-lg);
+}
+
+.stats-chart-card h3 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: 0.95rem;
+  margin-bottom: var(--space-lg);
+}
+
+.stats-chart-card h3 svg {
+  color: var(--accent-primary);
+}
+
+.stats-chart-container {
+  height: 250px;
+  position: relative;
+}
+
+.stats-doughnut-container {
+  height: 220px;
+}
+
+/* Mood Bar Chart (custom) */
+.stats-mood-bars {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.stats-mood-bar-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.stats-mood-emoji {
+  font-size: 1.1rem;
+  width: 24px;
+  text-align: center;
+}
+
+.stats-mood-label {
+  width: 70px;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  text-transform: capitalize;
+}
+
+.stats-mood-bar-track {
+  flex: 1;
+  height: 10px;
+  background: var(--bg-input);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.stats-mood-bar-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  transition: width 1s ease;
+}
+
+.stats-mood-value {
+  width: 30px;
+  text-align: right;
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+}
+
+/* Leaderboard */
+.stats-leaderboard {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.stats-leader-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: 8px var(--space-sm);
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-fast);
+}
+
+.stats-leader-row:hover {
+  background: var(--bg-input);
+}
+
+.stats-leader-rank {
+  width: 28px;
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 0.82rem;
+  color: var(--accent-primary);
+}
+
+.stats-leader-name {
+  flex: 1;
+  font-size: 0.88rem;
+  color: var(--text-primary);
+}
+
+.stats-leader-count {
+  font-size: 0.78rem;
+  color: var(--text-tertiary);
+}
+
+/* Top Rated */
+.stats-top-rated {
+  grid-column: 1 / -1;
+}
+
+.stats-top-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stats-top-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: 10px var(--space-sm);
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-fast);
+}
+
+.stats-top-item:hover {
+  background: var(--bg-input);
+}
+
+.stats-top-rank {
+  font-size: 1.2rem;
+  width: 30px;
+  text-align: center;
+}
+
+.stats-top-name {
+  flex: 1;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.stats-top-rating {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--accent-primary);
+}
+
+@media (max-width: 768px) {
+  .stats-top-row {
+    grid-template-columns: 1fr;
+  }
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+}

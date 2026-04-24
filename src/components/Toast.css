@@ -1,0 +1,27 @@
+.toast-icon-success { color: #fff; flex-shrink: 0; }
+.toast-icon-error { color: #fff; flex-shrink: 0; }
+
+.toast-message {
+  font-size: 0.88rem;
+  color: #fff;
+  flex: 1;
+  line-height: 1.4;
+}
+
+.toast-close {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  transition: color var(--t-fast);
+  border-radius: var(--r-xs);
+}
+.toast-close:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.toast-success { background: var(--success); }
+.toast-error   { background: var(--danger); }

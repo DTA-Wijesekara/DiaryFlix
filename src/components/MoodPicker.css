@@ -1,0 +1,56 @@
+.mood-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mood-picker-label {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--ink-50);
+  letter-spacing: 0.02em;
+}
+
+.mood-picker-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mood-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px;
+  border-radius: var(--r-full);
+  border: 1px solid var(--rule-strong);
+  background: var(--paper-elevated);
+  cursor: pointer;
+  transition: all var(--t-fast);
+  font-family: var(--font-sans);
+}
+
+.mood-btn:hover {
+  border-color: var(--mood-color, var(--ink-50));
+  background: var(--paper-warm);
+  transform: translateY(-1px);
+}
+
+.mood-btn.active {
+  background: var(--mood-color, var(--blue));
+  border-color: var(--mood-color, var(--blue));
+  color: #fff;
+}
+
+.mood-btn.active .mood-label { color: #fff; }
+
+.mood-emoji {
+  font-size: 1.02rem;
+  line-height: 1;
+}
+
+.mood-label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--ink-70);
+}
