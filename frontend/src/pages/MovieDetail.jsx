@@ -1,27 +1,33 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft, Star, Clock, Calendar, Film, Tv, MapPin,
-  Users, RefreshCw, Edit3, Trash2, Music, Quote, ExternalLink
+  ArrowLeft, Calendar, Film, Tv,
+  Users, RefreshCw, Edit3, Trash2, Music, Quote, ExternalLink, X, Save
 } from 'lucide-react';
-import { getLogById, deleteLog, incrementRewatch } from '../services/storage';
+import { getLogById, deleteLog, updateLog } from '../services/storage';
 import { getPosterUrl, getBackdropUrl } from '../services/tmdb';
 import StarRating from '../components/StarRating';
+import MoodPicker from '../components/MoodPicker';
 import Toast from '../components/Toast';
 import './MovieDetail.css';
+
+const PLATFORM_OPTIONS = [
+  'Netflix', 'Amazon Prime', 'Hotstar', 'JioCinema', 'Zee5',
+  'YouTube', 'Theater', 'TV', 'Downloaded', 'Other',
+];
 
 export default function MovieDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [log, setLog] = useState(null);
   const [toast, setToast] = useState(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editForm, setEditForm] = useState(null);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const data = getLogById(id);
-    if (!data) {
-      navigate('/library');
-      return;
-    }
+    if (!data) { navigate('/library'); return; }
     setLog(data);
   }, [id, navigate]);
 
@@ -42,14 +48,38 @@ export default function MovieDetail() {
     sinhala: 'var(--industry-sinhala)',
   }[log.industry] || 'var(--industry-other)';
 
-  const handleRewatch = async () => {
+  const openEdit = () => {
+    setEditForm({
+      dateWatched: log.dateWatched || '',
+      rating: log.rating || 0,
+      moodBefore: log.moodBefore || '',
+      moodAfter: log.moodAfter || '',
+      platform: log.platform || '',
+      watchedWith: log.watchedWith || '',
+      occasion: log.occasion || '',
+      category: log.category || '',
+      notes: log.notes || '',
+    });
+    setEditOpen(true);
+  };
+
+  const handleEditSave = async () => {
+    if (!editForm || saving) return;
+    setSaving(true);
     try {
-      const updated = await incrementRewatch(log.id);
+      const updated = await updateLog(log.id, editForm);
       setLog(updated);
-      setToast({ message: `Rewatch #${updated.rewatchCount} recorded`, type: 'success' });
+      setEditOpen(false);
+      setToast({ message: 'Entry updated', type: 'success' });
     } catch (err) {
-      setToast({ message: err.message || 'Could not record rewatch', type: 'error' });
+      setToast({ message: err.message || 'Could not update entry', type: 'error' });
+    } finally {
+      setSaving(false);
     }
+  };
+
+  const handleRewatch = () => {
+    navigate('/log', { state: { rewatchOf: log } });
   };
 
   const handleDelete = async () => {
@@ -67,7 +97,6 @@ export default function MovieDetail() {
 
   return (
     <div className="movie-detail fade-in" id="movie-detail-page">
-      {/* Backdrop */}
       {backdropSrc && (
         <div className="detail-backdrop">
           <img src={backdropSrc} alt="" className="detail-backdrop-img" />
@@ -84,7 +113,10 @@ export default function MovieDetail() {
           <button className="btn btn-secondary" onClick={handleRewatch}>
             <RefreshCw size={16} /> Watch Again
           </button>
-          <button className="btn btn-ghost btn-icon" onClick={handleDelete} title="Delete">
+          <button className="btn btn-ghost btn-icon" onClick={openEdit} title="Edit entry">
+            <Edit3 size={18} />
+          </button>
+          <button className="btn btn-ghost btn-icon" onClick={handleDelete} title="Delete entry">
             <Trash2 size={18} />
           </button>
         </div>
@@ -119,7 +151,7 @@ export default function MovieDetail() {
             <p className="detail-overview">{log.overview}</p>
           )}
 
-          {(log.genres?.length > 0) && (
+          {log.genres?.length > 0 && (
             <div className="detail-genres">
               {log.genres.map(g => <span key={g} className="chip">{g}</span>)}
             </div>
@@ -129,7 +161,6 @@ export default function MovieDetail() {
 
       {/* Details Grid */}
       <div className="detail-grid">
-        {/* Watch Info */}
         <div className="detail-section glass-card-static">
           <h3><Calendar size={16} /> Watch Info</h3>
           <div className="detail-info-list">
@@ -170,7 +201,6 @@ export default function MovieDetail() {
           </div>
         </div>
 
-        {/* Mood */}
         <div className="detail-section glass-card-static">
           <h3>🎭 Mood Journey</h3>
           <div className="detail-mood-journey">
@@ -197,7 +227,6 @@ export default function MovieDetail() {
           </div>
         </div>
 
-        {/* Cast */}
         {(log.actors?.length > 0 || log.actresses?.length > 0) && (
           <div className="detail-section glass-card-static">
             <h3><Users size={16} /> Cast</h3>
@@ -209,7 +238,6 @@ export default function MovieDetail() {
           </div>
         )}
 
-        {/* Favourite Songs */}
         {log.favouriteSongs?.length > 0 && (
           <div className="detail-section glass-card-static">
             <h3><Music size={16} /> Favourite Songs</h3>
@@ -234,7 +262,6 @@ export default function MovieDetail() {
           </div>
         )}
 
-        {/* Favourite Quotes */}
         {log.favouriteQuotes?.length > 0 && (
           <div className="detail-section glass-card-static detail-quotes-section">
             <h3><Quote size={16} /> Favourite Quotes</h3>
@@ -249,7 +276,6 @@ export default function MovieDetail() {
           </div>
         )}
 
-        {/* Notes */}
         {log.notes && (
           <div className="detail-section glass-card-static">
             <h3>📝 Notes</h3>
@@ -257,6 +283,131 @@ export default function MovieDetail() {
           </div>
         )}
       </div>
+
+      {/* Edit Modal */}
+      {editOpen && editForm && (
+        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setEditOpen(false)}>
+          <div className="modal detail-edit-modal">
+            <div className="detail-edit-header">
+              <div>
+                <h2>Edit Entry</h2>
+                <p className="detail-edit-title-hint">{log.title}</p>
+              </div>
+              <button className="btn btn-ghost btn-icon" onClick={() => setEditOpen(false)}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="detail-edit-body">
+              <div className="detail-edit-row">
+                <div className="input-group">
+                  <label>Date Watched</label>
+                  <input
+                    type="date"
+                    className="input"
+                    value={editForm.dateWatched}
+                    onChange={(e) => setEditForm(f => ({ ...f, dateWatched: e.target.value }))}
+                  />
+                </div>
+                <div className="input-group">
+                  <label>Platform</label>
+                  <select
+                    className="select"
+                    value={editForm.platform}
+                    onChange={(e) => setEditForm(f => ({ ...f, platform: e.target.value }))}
+                  >
+                    <option value="">Where did you watch?</option>
+                    {PLATFORM_OPTIONS.map(p => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div className="detail-edit-row">
+                <div className="input-group">
+                  <label>Watched With</label>
+                  <select
+                    className="select"
+                    value={editForm.watchedWith}
+                    onChange={(e) => setEditForm(f => ({ ...f, watchedWith: e.target.value }))}
+                  >
+                    <option value="">Who did you watch with?</option>
+                    <option value="solo">Solo 🎧</option>
+                    <option value="family">Family 👨‍👩‍👧</option>
+                    <option value="friends">Friends 👯</option>
+                    <option value="partner">Partner 💕</option>
+                  </select>
+                </div>
+                <div className="input-group">
+                  <label>Occasion</label>
+                  <input
+                    type="text"
+                    className="input"
+                    placeholder="Birthday, rainy day..."
+                    value={editForm.occasion}
+                    onChange={(e) => setEditForm(f => ({ ...f, occasion: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div className="input-group">
+                <label>Category / Genre Tag</label>
+                <input
+                  type="text"
+                  className="input"
+                  placeholder="love, action, thriller..."
+                  value={editForm.category}
+                  onChange={(e) => setEditForm(f => ({ ...f, category: e.target.value }))}
+                />
+              </div>
+
+              <div className="input-group">
+                <label>Your Rating</label>
+                <StarRating
+                  value={editForm.rating}
+                  onChange={(v) => setEditForm(f => ({ ...f, rating: v }))}
+                />
+              </div>
+
+              <MoodPicker
+                value={editForm.moodBefore}
+                onChange={(v) => setEditForm(f => ({ ...f, moodBefore: v }))}
+                label="How were you feeling BEFORE watching?"
+                id="edit-mood-before"
+              />
+              <div style={{ marginTop: '16px' }}>
+                <MoodPicker
+                  value={editForm.moodAfter}
+                  onChange={(v) => setEditForm(f => ({ ...f, moodAfter: v }))}
+                  label="How did you feel AFTER watching? (optional)"
+                  id="edit-mood-after"
+                />
+              </div>
+
+              <div className="input-group" style={{ marginTop: '16px' }}>
+                <label>Notes</label>
+                <textarea
+                  className="textarea"
+                  rows={4}
+                  placeholder="Any personal thoughts or memories..."
+                  value={editForm.notes}
+                  onChange={(e) => setEditForm(f => ({ ...f, notes: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div className="detail-edit-footer">
+              <button className="btn btn-secondary" onClick={() => setEditOpen(false)}>
+                Cancel
+              </button>
+              <button className="btn btn-primary" onClick={handleEditSave} disabled={saving}>
+                {saving
+                  ? <div className="auth-btn-spinner" />
+                  : <><Save size={15} /> Save changes</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {toast && (
         <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />

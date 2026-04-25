@@ -1,35 +1,62 @@
-// CineLog — Database layer
+// DiaryFLIX — Database layer
+// - Auto-detects driver: msnodesqlv8 (Windows/local) → mssql/tedious (Linux/Docker)
 // - Validates identifier names before interpolation (no SQL injection surface)
 // - Maintains a single connection pool rather than reconnecting per request
 // - Seeds an admin only when explicitly enabled via env
 
-const sql = require('mssql/msnodesqlv8');
 const bcrypt = require('bcryptjs');
 const config = require('./config');
 
-function connectionString(database) {
-  const parts = [
-    `Driver={${config.db.driver}}`,
-    `Server=${config.db.server}`,
-    `Database=${database}`,
-  ];
-  if (config.db.trustedConnection) {
-    parts.push('Trusted_Connection=yes');
-  } else if (config.db.user && config.db.password) {
-    parts.push(`Uid=${config.db.user}`);
-    parts.push(`Pwd=${config.db.password}`);
+// Try Windows ODBC driver first (local dev on Windows).
+// Falls back to the pure-JS tedious driver for Linux / Docker.
+let sql;
+let useOdbc = false;
+try {
+  sql = require('mssql/msnodesqlv8');
+  useOdbc = true;
+  console.log('[db] Using msnodesqlv8 (Windows ODBC) driver');
+} catch {
+  sql = require('mssql');
+  console.log('[db] Using mssql/tedious driver');
+}
+
+// Build the right config object for whichever driver was loaded.
+function poolConfig(database) {
+  if (useOdbc) {
+    const parts = [
+      `Driver={${config.db.driver}}`,
+      `Server=${config.db.server}`,
+      `Database=${database}`,
+    ];
+    if (config.db.trustedConnection) {
+      parts.push('Trusted_Connection=yes');
+    } else if (config.db.user && config.db.password) {
+      parts.push(`Uid=${config.db.user}`);
+      parts.push(`Pwd=${config.db.password}`);
+    }
+    parts.push('TrustServerCertificate=yes');
+    return { connectionString: parts.join(';') + ';' };
   }
-  parts.push('TrustServerCertificate=yes');
-  return parts.join(';') + ';';
+
+  // Standard mssql (tedious) — used in Docker / Linux
+  return {
+    server: config.db.server,
+    database,
+    user: config.db.user,
+    password: config.db.password,
+    options: {
+      trustServerCertificate: true,
+      enableArithAbort: true,
+    },
+    pool: { max: 10, min: 0, idleTimeoutMillis: 30_000 },
+  };
 }
 
 let pool = null;
 
 async function getPool() {
   if (pool && pool.connected) return pool;
-  pool = await new sql.ConnectionPool({
-    connectionString: connectionString(config.db.name),
-  }).connect();
+  pool = await new sql.ConnectionPool(poolConfig(config.db.name)).connect();
   pool.on('error', err => {
     console.error('[db] pool error:', err.message);
   });
@@ -44,12 +71,9 @@ async function closePool() {
 }
 
 async function ensureDatabaseExists() {
-  const master = await new sql.ConnectionPool({
-    connectionString: connectionString('master'),
-  }).connect();
+  const master = await new sql.ConnectionPool(poolConfig('master')).connect();
 
   try {
-    // Parameterised check
     const check = await master.request()
       .input('name', sql.VarChar, config.db.name)
       .query('SELECT database_id FROM sys.databases WHERE name = @name');
@@ -148,7 +172,6 @@ async function ensureSchema() {
     await addColumnIfMissing('WatchLogs', col, type);
   }
 
-  // Helpful indexes
   await p.request().query(`
     IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_WatchLogs_userId_dateWatched')
     CREATE INDEX IX_WatchLogs_userId_dateWatched ON WatchLogs (userId, dateWatched DESC);
