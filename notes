@@ -1,27 +1,25 @@
-To run this project in VS Code, you'll need to start both the backend server and the frontend application. You can do this by opening the **integrated terminal** in VS Code (`Ctrl` + `` ` `` or go to **Terminal > New Terminal** in the top menu).
+Simple — you need two terminals, one for each:
 
-Here is the step-by-step guide:
+Terminal 1 — Backend:
 
-### Step 1: Start the Backend Server
-1. Open a new terminal in VS Code.
-2. Navigate to the `server` directory:
-   ```bash
-   cd server
-   ```
-3. Start the Node.js server:
-   ```bash
-   node server.js
-   ```
-   *(You should see a message saying "Server is running on port 5000" and a successful database connection message).*
 
-### Step 2: Start the Frontend Application
-1. Open a **second terminal** in VS Code (you can click the `+` icon in the terminal panel or use the split terminal button).
-2. Ensure you are in the root directory of the project (e.g., `c:\Users\dasun\OneDrive\Desktop\mov`).
-3. Start the Vite development server:
-   ```bash
-   npm run dev
-   ```
-   *(You should see a message saying "VITE ready" and a local URL, typically `http://localhost:5173/`).*
+cd server
+npm start
+Terminal 2 — Frontend:
 
-### Step 3: Open in Browser
-Once both are running, `Ctrl + Click` (or `Cmd + Click` on Mac) the `http://localhost:5173/` link in your frontend terminal to open the application in your web browser.
+
+cd frontend
+npm run dev
+Then open http://localhost:5173 in your browser (Vite's default port).
+
+The only thing that changed from before is you now cd frontend instead of running from the root. Everything else is identical.
+
+If you don't have the server dependencies installed yet:
+
+
+cd server
+npm install
+
+
+
+v-1.5
