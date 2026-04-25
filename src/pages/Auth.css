@@ -5,19 +5,20 @@
   display: grid;
   grid-template-columns: 1.1fr 1fr;
   position: relative;
-  background: var(--paper);
+  background: #fbfcfe;
 }
 
 /* Left column — editorial marketing side */
 .auth-aside {
   position: relative;
-  background: var(--ink);
-  color: var(--paper-elevated);
+  background: #0b1220;
+  color: #ffffff;
   padding: var(--space-7) var(--space-7);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   overflow: hidden;
+  min-height: 100vh;
 }
 
 .auth-aside::before {
@@ -50,21 +51,29 @@
 }
 
 .auth-aside-brand-name {
-  font-family: var(--font-display);
+  font-family: var(--font-display, 'Fraunces', Georgia, serif);
   font-weight: 600;
   font-size: 1.15rem;
   letter-spacing: -0.01em;
+  color: #ffffff;
+}
+
+.auth-aside-center {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6, 32px);
 }
 
 .auth-aside-headline {
-  position: relative;
-  z-index: 1;
   font-family: var(--font-display);
   font-weight: 400;
   font-size: clamp(2.2rem, 4.6vw, 3.5rem);
   line-height: 1.08;
   letter-spacing: -0.02em;
   max-width: 18ch;
+  color: #ffffff;
 }
 
 .auth-aside-headline em {
@@ -72,12 +81,35 @@
   color: #aebffc;
 }
 
+.auth-aside-quote {
+  border-left: 2px solid rgba(174, 191, 252, 0.35);
+  padding-left: var(--space-4, 16px);
+  max-width: 38ch;
+}
+
+.auth-aside-quote-text {
+  font-family: var(--font-display);
+  font-size: 0.92rem;
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.55);
+  line-height: 1.5;
+  margin-bottom: 6px;
+}
+
+.auth-aside-quote-author {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(174, 191, 252, 0.6);
+}
+
 .auth-aside-meta {
   position: relative;
   z-index: 1;
-  font-family: var(--font-mono);
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
   font-size: 0.72rem;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.45);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -88,6 +120,8 @@
   align-items: center;
   justify-content: center;
   padding: var(--space-7) var(--space-5);
+  background: #fbfcfe;
+  min-height: 100vh;
 }
 
 .auth-container {
@@ -144,9 +178,14 @@
 }
 
 .auth-input {
-  padding-left: 42px !important;
-  padding-right: 42px !important;
+  padding-left: 42px;
+  padding-right: 14px;
   font-size: 0.95rem;
+}
+
+/* When no left icon is used, reset the padding */
+.auth-input.no-icon {
+  padding-left: 14px;
 }
 
 .auth-toggle-password {

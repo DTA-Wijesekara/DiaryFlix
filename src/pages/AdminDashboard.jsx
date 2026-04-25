@@ -97,7 +97,7 @@ export default function AdminDashboard() {
       <header className="page-header">
         <span className="eyebrow">Administration</span>
         <h1>Membership</h1>
-        <p>Manage accounts, roles, and diary ownership across CineLog.</p>
+        <p>Manage accounts, roles, and diary ownership across DiaryFLIX.</p>
       </header>
 
       <div className="admin-stats-grid">

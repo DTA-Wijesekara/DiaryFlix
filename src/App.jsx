@@ -14,6 +14,7 @@ import SmartRewatch from './pages/SmartRewatch';
 import Statistics from './pages/Statistics';
 import Settings from './pages/Settings';
 import AdminDashboard from './pages/AdminDashboard';
+import Landing from './pages/Landing';
 
 function AppContent() {
   const { user, loading } = useAuth();
@@ -22,7 +23,7 @@ function AppContent() {
     return (
       <div className="auth-loading">
         <div className="auth-loading-spinner" />
-        <p>Loading CineLog...</p>
+        <p>Loading DiaryFLIX...</p>
       </div>
     );
   }
@@ -31,9 +32,10 @@ function AppContent() {
   if (!user) {
     return (
       <Routes>
+        <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     );
   }

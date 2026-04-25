@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { LogIn, Eye, EyeOff } from 'lucide-react';
+import { LogIn, Eye, EyeOff, Mail, Lock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import Toast from '../components/Toast';
 import AuthAside from '../components/AuthAside';
@@ -46,6 +46,7 @@ export default function Login() {
             <form className="auth-form" onSubmit={handleSubmit} noValidate>
               <div className="auth-input-group">
                 <label htmlFor="login-email">Email</label>
+                <span className="auth-input-icon"><Mail size={15} /></span>
                 <input
                   type="email"
                   className="input auth-input"
@@ -61,9 +62,11 @@ export default function Login() {
 
               <div className="auth-input-group">
                 <label htmlFor="login-password">Password</label>
+                <span className="auth-input-icon"><Lock size={15} /></span>
                 <input
                   type={showPassword ? 'text' : 'password'}
                   className="input auth-input"
+                  style={{ paddingRight: '42px' }}
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}

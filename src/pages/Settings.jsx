@@ -80,7 +80,7 @@ export default function Settings() {
     <div className="settings fade-in" id="settings-page">
       <div className="page-header">
         <h1>Settings ⚙️</h1>
-        <p>Configure your CineLog experience.</p>
+        <p>Configure your DiaryFLIX experience.</p>
       </div>
 
 
@@ -147,7 +147,7 @@ export default function Settings() {
       {/* About */}
       <div className="settings-section glass-card-static">
         <div className="settings-about">
-          <h3>About CineLog</h3>
+          <h3>About DiaryFLIX</h3>
           <p>A personalized cinema diary that tracks your movies, moods, and memories.</p>
           <div className="settings-about-features">
             <span>🎬 Movie Logging</span>

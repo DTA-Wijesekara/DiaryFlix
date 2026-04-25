@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { UserPlus, Eye, EyeOff } from 'lucide-react';
+import { UserPlus, Eye, EyeOff, User, Mail, Lock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import Toast from '../components/Toast';
 import AuthAside from '../components/AuthAside';
@@ -59,10 +59,10 @@ export default function Register() {
             <form className="auth-form" onSubmit={handleSubmit} noValidate>
               <div className="auth-input-group">
                 <label htmlFor="register-name">Name</label>
+                <span className="auth-input-icon"><User size={15} /></span>
                 <input
                   type="text"
                   className="input auth-input"
-                  style={{ paddingLeft: '14px' }}
                   placeholder="How should we address you?"
                   value={form.displayName}
                   onChange={(e) => handleChange('displayName', e.target.value)}
@@ -75,10 +75,10 @@ export default function Register() {
 
               <div className="auth-input-group">
                 <label htmlFor="register-email">Email</label>
+                <span className="auth-input-icon"><Mail size={15} /></span>
                 <input
                   type="email"
                   className="input auth-input"
-                  style={{ paddingLeft: '14px' }}
                   placeholder="you@example.com"
                   value={form.email}
                   onChange={(e) => handleChange('email', e.target.value)}
@@ -90,10 +90,11 @@ export default function Register() {
 
               <div className="auth-input-group">
                 <label htmlFor="register-password">Password</label>
+                <span className="auth-input-icon"><Lock size={15} /></span>
                 <input
                   type={showPassword ? 'text' : 'password'}
                   className="input auth-input"
-                  style={{ paddingLeft: '14px' }}
+                  style={{ paddingRight: '42px' }}
                   placeholder="At least 6 characters"
                   value={form.password}
                   onChange={(e) => handleChange('password', e.target.value)}
@@ -114,10 +115,10 @@ export default function Register() {
 
               <div className="auth-input-group">
                 <label htmlFor="register-confirm">Confirm password</label>
+                <span className="auth-input-icon"><Lock size={15} /></span>
                 <input
                   type={showPassword ? 'text' : 'password'}
                   className="input auth-input"
-                  style={{ paddingLeft: '14px' }}
                   placeholder="Repeat your password"
                   value={form.confirmPassword}
                   onChange={(e) => handleChange('confirmPassword', e.target.value)}

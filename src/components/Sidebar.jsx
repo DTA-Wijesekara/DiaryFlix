@@ -56,7 +56,7 @@ export default function Sidebar() {
             </svg>
           </div>
           <div className="sidebar-brand-text">
-            <span className="sidebar-brand-name">CineLog</span>
+            <span className="sidebar-brand-name">DiaryFLIX</span>
             <span className="sidebar-brand-tagline">A cinema diary</span>
           </div>
         </div>
