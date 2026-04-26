@@ -296,6 +296,7 @@
   border-radius: var(--r-sm);
   transition: border-color var(--t-fast), background var(--t-fast);
 }
+
 .detail-song-card:hover {
   border-color: var(--blue-100);
   background: var(--blue-50);

@@ -207,11 +207,12 @@
   display: grid;
   place-items: center;
   border: 1px solid var(--blue-100);
-  transition: background var(--t-fast);
+  transition: background var(--t-fast), border-color var(--t-fast);
 }
 
 .landing-feature-card:hover .landing-feature-icon {
   background: var(--blue-100);
+  border-color: var(--blue-100);
 }
 
 .landing-feature-title {

@@ -91,7 +91,7 @@
 
 .library-table tbody tr {
   border-bottom: 1px solid var(--rule);
-  transition: background var(--t-fast);
+  transition: background var(--t-fast), box-shadow var(--t-fast);
 }
 .library-table tbody tr:last-child { border-bottom: none; }
 .library-table tbody tr:hover { background: var(--blue-50); }
@@ -144,6 +144,7 @@
   font-size: 0.96rem;
   letter-spacing: -0.005em;
   transition: color var(--t-fast);
+  display: block;
 }
 
 .library-table-year {

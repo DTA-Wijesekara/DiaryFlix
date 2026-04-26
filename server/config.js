@@ -1,10 +1,8 @@
-// CineLog — Server Configuration
-// All environment-driven settings live here so the rest of the code can stay simple.
+// DiaryFLIX — Server Configuration
 
 const path = require('path');
 const crypto = require('crypto');
 
-// Load .env from the server/ directory (falls back silently if missing)
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const isProd = process.env.NODE_ENV === 'production';
@@ -27,13 +25,13 @@ function resolveJwtSecret() {
   return generated;
 }
 
-function resolveDbName() {
-  const name = process.env.DB_NAME || 'cinemadiary';
-  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
-    console.error(`Invalid DB_NAME: ${name}. Must match /^[A-Za-z_][A-Za-z0-9_]*$/`);
+function resolveDatabaseUrl() {
+  const url = process.env.DATABASE_URL;
+  if (!url) {
+    console.error('DATABASE_URL is required. Set it in server/.env');
     process.exit(1);
   }
-  return name;
+  return url;
 }
 
 function resolveCorsOrigins() {
@@ -54,12 +52,10 @@ const config = {
   bcryptRounds: Number(process.env.BCRYPT_ROUNDS) || 10,
 
   db: {
-    server: process.env.DB_SERVER || 'localhost',
-    name: resolveDbName(),
-    driver: process.env.DB_DRIVER || 'ODBC Driver 17 for SQL Server',
-    trustedConnection: process.env.DB_TRUSTED !== 'false',
-    user: process.env.DB_USER || null,
-    password: process.env.DB_PASSWORD || null,
+    url: resolveDatabaseUrl(),
+    // SSL is required for Neon and most cloud PostgreSQL providers.
+    // Set DB_SSL=false only for local dev without SSL.
+    ssl: process.env.DB_SSL !== 'false',
   },
 
   cors: {
