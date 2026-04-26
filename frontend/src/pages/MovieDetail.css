@@ -190,6 +190,8 @@
   font-weight: 600;
   font-size: 1.08rem;
   margin-bottom: var(--space-4);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--rule);
   color: var(--ink);
 }
 
@@ -292,6 +294,12 @@
   background: var(--paper-warm);
   border: 1px solid var(--rule);
   border-radius: var(--r-sm);
+  transition: border-color var(--t-fast), background var(--t-fast);
+}
+
+.detail-song-card:hover {
+  border-color: var(--blue-100);
+  background: var(--blue-50);
 }
 
 .detail-song-icon { color: var(--blue); flex-shrink: 0; }

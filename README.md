@@ -268,3 +268,33 @@ All routes are prefixed with `/api`.
 ## License
 
 MIT © [Dasun Theekshana](https://github.com/your-username)
+
+
+
+
+
+
+Simple — you need two terminals, one for each:
+
+Terminal 1 — Backend:
+
+cd server
+npm start
+
+npm run dev
+npm install
+
+
+Terminal 2 — Frontend:
+
+cd frontend
+npm run dev
+Then open http://localhost:5173 in your browser (Vite's default port).
+
+The only thing that changed from before is you now cd frontend instead of running from the root. Everything else is identical.
+
+If you don't have the server dependencies installed yet:
+
+
+
+v1.8
