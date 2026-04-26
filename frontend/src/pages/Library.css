@@ -64,6 +64,7 @@
   border: 1px solid var(--rule);
   border-radius: var(--r-md);
   background: var(--paper-elevated);
+  box-shadow: var(--shadow-1);
 }
 
 .library-table {
@@ -94,6 +95,7 @@
 }
 .library-table tbody tr:last-child { border-bottom: none; }
 .library-table tbody tr:hover { background: var(--blue-50); }
+.library-table tbody tr:hover .library-table-title { color: var(--blue); }
 
 .library-table td {
   padding: 12px 16px;
