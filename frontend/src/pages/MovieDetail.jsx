@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft, Calendar, Film, Tv,
+  ArrowLeft, Calendar, Film, Tv, ChevronLeft, ChevronRight,
   Users, RefreshCw, Edit3, Trash2, Music, Quote, ExternalLink, X, Save
 } from 'lucide-react';
-import { getLogById, deleteLog, updateLog } from '../services/storage';
+import { getLogById, getAllLogs, deleteLog, updateLog } from '../services/storage';
 import { getPosterUrl, getBackdropUrl } from '../services/tmdb';
 import StarRating from '../components/StarRating';
 import MoodPicker from '../components/MoodPicker';
@@ -19,19 +19,39 @@ const PLATFORM_OPTIONS = [
 export default function MovieDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [log, setLog] = useState(null);
-  const [toast, setToast] = useState(null);
-  const [editOpen, setEditOpen] = useState(false);
-  const [editForm, setEditForm] = useState(null);
-  const [saving, setSaving] = useState(false);
+
+  const [log, setLog]               = useState(null); // base entry — movie-level metadata
+  const [allWatches, setAllWatches] = useState([]);   // all diary entries for this film, date-sorted
+  const [watchIdx, setWatchIdx]     = useState(0);    // which watch is currently displayed
+  const [toast, setToast]           = useState(null);
+  const [editOpen, setEditOpen]     = useState(false);
+  const [editForm, setEditForm]     = useState(null);
+  const [saving, setSaving]         = useState(false);
 
   useEffect(() => {
     const data = getLogById(id);
     if (!data) { navigate('/library'); return; }
     setLog(data);
+
+    // Gather all diary entries for the same film (same movieId).
+    // Sort oldest → newest so Watch 1 is the first time they saw it.
+    const siblings = data.movieId
+      ? getAllLogs()
+          .filter(l => l.movieId === data.movieId)
+          .sort((a, b) => new Date(a.dateWatched || a.createdAt) - new Date(b.dateWatched || b.createdAt))
+      : [data];
+
+    const watches = siblings.length > 0 ? siblings : [data];
+    setAllWatches(watches);
+    const idx = watches.findIndex(l => l.id === id);
+    setWatchIdx(idx >= 0 ? idx : 0);
   }, [id, navigate]);
 
   if (!log) return null;
+
+  // Watch-specific fields come from the currently selected diary entry.
+  // Movie metadata (title, poster, cast, …) stays constant from `log`.
+  const currentWatch = allWatches[watchIdx] || log;
 
   const moodEmoji = {
     stressed: '😰', relaxed: '😌', happy: '😊', sad: '😢',
@@ -48,17 +68,22 @@ export default function MovieDetail() {
     sinhala: 'var(--industry-sinhala)',
   }[log.industry] || 'var(--industry-other)';
 
+  const goToWatch = (newIdx) => {
+    setWatchIdx(newIdx);
+    setEditOpen(false); // close edit modal when switching watch
+  };
+
   const openEdit = () => {
     setEditForm({
-      dateWatched: log.dateWatched || '',
-      rating: log.rating || 0,
-      moodBefore: log.moodBefore || '',
-      moodAfter: log.moodAfter || '',
-      platform: log.platform || '',
-      watchedWith: log.watchedWith || '',
-      occasion: log.occasion || '',
-      category: log.category || '',
-      notes: log.notes || '',
+      dateWatched: currentWatch.dateWatched || '',
+      rating:      currentWatch.rating      || 0,
+      moodBefore:  currentWatch.moodBefore  || '',
+      moodAfter:   currentWatch.moodAfter   || '',
+      platform:    currentWatch.platform    || '',
+      watchedWith: currentWatch.watchedWith || '',
+      occasion:    currentWatch.occasion    || '',
+      category:    currentWatch.category    || '',
+      notes:       currentWatch.notes       || '',
     });
     setEditOpen(true);
   };
@@ -67,8 +92,8 @@ export default function MovieDetail() {
     if (!editForm || saving) return;
     setSaving(true);
     try {
-      const updated = await updateLog(log.id, editForm);
-      setLog(updated);
+      const updated = await updateLog(currentWatch.id, editForm);
+      setAllWatches(prev => prev.map(w => w.id === updated.id ? updated : w));
       setEditOpen(false);
       setToast({ message: 'Entry updated', type: 'success' });
     } catch (err) {
@@ -83,17 +108,23 @@ export default function MovieDetail() {
   };
 
   const handleDelete = async () => {
-    if (!window.confirm(`Delete "${log.title}" from your diary?`)) return;
+    if (!window.confirm(`Delete this watch entry for "${log.title}"?`)) return;
     try {
-      await deleteLog(log.id);
-      navigate('/diary');
+      await deleteLog(currentWatch.id);
+      const remaining = allWatches.filter(w => w.id !== currentWatch.id);
+      if (remaining.length === 0) {
+        navigate('/diary');
+      } else {
+        setAllWatches(remaining);
+        setWatchIdx(Math.min(watchIdx, remaining.length - 1));
+      }
     } catch (err) {
       setToast({ message: err.message || 'Could not delete entry', type: 'error' });
     }
   };
 
   const backdropSrc = log.backdropPath ? getBackdropUrl(log.backdropPath) : null;
-  const posterSrc = log.posterUrl || (log.posterPath ? getPosterUrl(log.posterPath) : null);
+  const posterSrc   = log.posterUrl || (log.posterPath ? getPosterUrl(log.posterPath) : null);
 
   return (
     <div className="movie-detail fade-in" id="movie-detail-page">
@@ -122,7 +153,7 @@ export default function MovieDetail() {
         </div>
       </div>
 
-      {/* Hero */}
+      {/* Hero — movie metadata stays fixed while navigating watches */}
       <div className="detail-hero">
         {posterSrc && (
           <img src={posterSrc} alt={log.title} className="detail-poster" />
@@ -143,8 +174,9 @@ export default function MovieDetail() {
             {log.director && <span>Dir: {log.director}</span>}
           </div>
 
+          {/* Rating is per-watch */}
           <div className="detail-rating-row">
-            <StarRating value={log.rating} readonly size={20} />
+            <StarRating value={currentWatch.rating} readonly size={20} />
           </div>
 
           {log.overview && (
@@ -159,7 +191,41 @@ export default function MovieDetail() {
         </div>
       </div>
 
-      {/* Details Grid */}
+      {/* Watch navigator — only visible when the film has been watched more than once */}
+      {allWatches.length > 1 && (
+        <div className="detail-watch-nav">
+          <button
+            className="btn btn-ghost btn-icon"
+            onClick={() => goToWatch(watchIdx - 1)}
+            disabled={watchIdx === 0}
+            title="Earlier watch"
+          >
+            <ChevronLeft size={18} />
+          </button>
+
+          <div className="detail-watch-nav-info">
+            <span className="detail-watch-nav-count">Watch {watchIdx + 1} of {allWatches.length}</span>
+            {currentWatch.dateWatched && (
+              <span className="detail-watch-nav-date">
+                {new Date(currentWatch.dateWatched).toLocaleDateString('en-US', {
+                  month: 'long', day: 'numeric', year: 'numeric',
+                })}
+              </span>
+            )}
+          </div>
+
+          <button
+            className="btn btn-ghost btn-icon"
+            onClick={() => goToWatch(watchIdx + 1)}
+            disabled={watchIdx === allWatches.length - 1}
+            title="Later watch"
+          >
+            <ChevronRight size={18} />
+          </button>
+        </div>
+      )}
+
+      {/* Details Grid — all watch-specific fields come from currentWatch */}
       <div className="detail-grid">
         <div className="detail-section glass-card-static">
           <h3><Calendar size={16} /> Watch Info</h3>
@@ -167,61 +233,65 @@ export default function MovieDetail() {
             <div className="detail-info-row">
               <span>Date Watched</span>
               <strong>
-                {log.dateWatched
-                  ? new Date(log.dateWatched).toLocaleDateString('en-US', {
-                      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+                {currentWatch.dateWatched
+                  ? new Date(currentWatch.dateWatched).toLocaleDateString('en-US', {
+                      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
                     })
                   : 'Unknown'}
               </strong>
             </div>
-            {log.platform && (
+            {currentWatch.platform && (
               <div className="detail-info-row">
-                <span>Platform</span><strong>{log.platform}</strong>
+                <span>Platform</span><strong>{currentWatch.platform}</strong>
               </div>
             )}
-            {log.watchedWith && (
+            {currentWatch.watchedWith && (
               <div className="detail-info-row">
                 <span>Watched With</span>
-                <strong style={{ textTransform: 'capitalize' }}>{log.watchedWith}</strong>
+                <strong style={{ textTransform: 'capitalize' }}>{currentWatch.watchedWith}</strong>
               </div>
             )}
-            {log.occasion && (
+            {currentWatch.occasion && (
               <div className="detail-info-row">
-                <span>Occasion</span><strong>{log.occasion}</strong>
+                <span>Occasion</span><strong>{currentWatch.occasion}</strong>
               </div>
             )}
-            {log.category && (
+            {currentWatch.category && (
               <div className="detail-info-row">
-                <span>Category</span><strong style={{ textTransform: 'capitalize' }}>{log.category}</strong>
+                <span>Category</span>
+                <strong style={{ textTransform: 'capitalize' }}>{currentWatch.category}</strong>
               </div>
             )}
-            <div className="detail-info-row">
-              <span>Rewatched</span><strong>{log.rewatchCount || 0} times</strong>
-            </div>
+            {allWatches.length > 0 && (
+              <div className="detail-info-row">
+                <span>Total Watches</span>
+                <strong>{allWatches.length} {allWatches.length === 1 ? 'time' : 'times'}</strong>
+              </div>
+            )}
           </div>
         </div>
 
         <div className="detail-section glass-card-static">
           <h3>🎭 Mood Journey</h3>
           <div className="detail-mood-journey">
-            {log.moodBefore && (
+            {currentWatch.moodBefore && (
               <div className="detail-mood-card">
                 <span className="detail-mood-label">Before</span>
-                <span className="detail-mood-emoji">{moodEmoji[log.moodBefore] || '🎭'}</span>
-                <span className="detail-mood-name">{log.moodBefore}</span>
+                <span className="detail-mood-emoji">{moodEmoji[currentWatch.moodBefore] || '🎭'}</span>
+                <span className="detail-mood-name">{currentWatch.moodBefore}</span>
               </div>
             )}
-            {log.moodBefore && log.moodAfter && (
+            {currentWatch.moodBefore && currentWatch.moodAfter && (
               <div className="detail-mood-arrow">→</div>
             )}
-            {log.moodAfter && (
+            {currentWatch.moodAfter && (
               <div className="detail-mood-card">
                 <span className="detail-mood-label">After</span>
-                <span className="detail-mood-emoji">{moodEmoji[log.moodAfter] || '🎭'}</span>
-                <span className="detail-mood-name">{log.moodAfter}</span>
+                <span className="detail-mood-emoji">{moodEmoji[currentWatch.moodAfter] || '🎭'}</span>
+                <span className="detail-mood-name">{currentWatch.moodAfter}</span>
               </div>
             )}
-            {!log.moodBefore && !log.moodAfter && (
+            {!currentWatch.moodBefore && !currentWatch.moodAfter && (
               <p style={{ color: 'var(--text-tertiary)', fontSize: '0.85rem' }}>No mood recorded</p>
             )}
           </div>
@@ -238,11 +308,11 @@ export default function MovieDetail() {
           </div>
         )}
 
-        {log.favouriteSongs?.length > 0 && (
+        {currentWatch.favouriteSongs?.length > 0 && (
           <div className="detail-section glass-card-static">
             <h3><Music size={16} /> Favourite Songs</h3>
             <div className="detail-songs">
-              {log.favouriteSongs.map((song, i) => (
+              {currentWatch.favouriteSongs.map((song, i) => (
                 <div key={i} className="detail-song-card">
                   <Music size={16} className="detail-song-icon" />
                   <span className="detail-song-name">{song.name}</span>
@@ -262,11 +332,11 @@ export default function MovieDetail() {
           </div>
         )}
 
-        {log.favouriteQuotes?.length > 0 && (
+        {currentWatch.favouriteQuotes?.length > 0 && (
           <div className="detail-section glass-card-static detail-quotes-section">
             <h3><Quote size={16} /> Favourite Quotes</h3>
             <div className="detail-quotes">
-              {log.favouriteQuotes.map((quote, i) => (
+              {currentWatch.favouriteQuotes.map((quote, i) => (
                 <blockquote key={i} className="detail-quote">
                   <span className="detail-quote-mark">"</span>
                   {quote}
@@ -276,22 +346,25 @@ export default function MovieDetail() {
           </div>
         )}
 
-        {log.notes && (
+        {currentWatch.notes && (
           <div className="detail-section glass-card-static">
             <h3>📝 Notes</h3>
-            <p className="detail-notes">{log.notes}</p>
+            <p className="detail-notes">{currentWatch.notes}</p>
           </div>
         )}
       </div>
 
-      {/* Edit Modal */}
+      {/* Edit Modal — edits only the currently displayed watch entry */}
       {editOpen && editForm && (
         <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setEditOpen(false)}>
           <div className="modal detail-edit-modal">
             <div className="detail-edit-header">
               <div>
                 <h2>Edit Entry</h2>
-                <p className="detail-edit-title-hint">{log.title}</p>
+                <p className="detail-edit-title-hint">
+                  {log.title}
+                  {allWatches.length > 1 && ` · Watch ${watchIdx + 1} of ${allWatches.length}`}
+                </p>
               </div>
               <button className="btn btn-ghost btn-icon" onClick={() => setEditOpen(false)}>
                 <X size={18} />

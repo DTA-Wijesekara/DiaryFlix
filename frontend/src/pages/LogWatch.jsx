@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Save, Film, Tv, Users, Tag, AlertCircle, RefreshCw } from 'lucide-react';
-import { addLog, getAllLogs, incrementRewatch } from '../services/storage';
+import { addLog, getAllLogs } from '../services/storage';
 import { getMovieDetails, getPosterUrl, detectIndustry, hasTMDBKey } from '../services/tmdb';
 import MovieSearch from '../components/MovieSearch';
 import MoodPicker from '../components/MoodPicker';
@@ -141,20 +141,6 @@ export default function LogWatch() {
       return;
     }
 
-    // Duplicate detected (manual log, not Watch Again): just update the rewatch count
-    if (duplicateLogId && !rewatchOf) {
-      setSaving(true);
-      try {
-        await incrementRewatch(duplicateLogId);
-        setToast({ message: `Rewatch recorded for "${form.title}"`, type: 'success' });
-        setTimeout(() => navigate('/diary'), 900);
-      } catch (err) {
-        setToast({ message: err.message || 'Could not record rewatch', type: 'error' });
-        setSaving(false);
-      }
-      return;
-    }
-
     const entry = {
       ...form,
       actors: form.actors.filter(a => a.trim()),
@@ -166,10 +152,6 @@ export default function LogWatch() {
     setSaving(true);
     try {
       await addLog(entry);
-      // Also bump rewatch count on the original entry
-      if (rewatchOf?.id) {
-        try { await incrementRewatch(rewatchOf.id); } catch (_) {}
-      }
       setToast({ message: `"${form.title}" saved to your diary`, type: 'success' });
       setTimeout(() => navigate('/diary'), 900);
     } catch (err) {
@@ -177,6 +159,8 @@ export default function LogWatch() {
       setSaving(false);
     }
   };
+
+  const submitLabel = rewatchOf ? 'Log Rewatch' : 'Save entry';
 
   return (
     <div className="log-watch fade-in" id="log-watch-page">
@@ -212,7 +196,7 @@ export default function LogWatch() {
           {duplicateLogId && !rewatchOf && (
             <div className="log-duplicate-warn">
               <AlertCircle size={15} />
-              You've already logged <strong>{form.title}</strong>. Saving will record this as a rewatch and update the count — no duplicate entry will be created.
+              You've already logged <strong>{form.title}</strong>. This will be saved as a new diary entry and the watch count will update automatically.
             </div>
           )}
 
@@ -383,7 +367,7 @@ export default function LogWatch() {
         <div className="log-submit">
           <button type="submit" className="btn btn-primary btn-lg log-submit-btn" disabled={saving}>
             <Save size={18} />
-            {saving ? 'Saving…' : duplicateLogId && !rewatchOf ? 'Record Rewatch' : 'Save entry'}
+            {saving ? 'Saving…' : submitLabel}
           </button>
         </div>
       </form>

@@ -5,6 +5,9 @@ Terminal 1 — Backend:
 
 cd server
 npm start
+npm run dev
+
+
 Terminal 2 — Frontend:
 
 

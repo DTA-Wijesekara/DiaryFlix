@@ -77,15 +77,6 @@ export async function deleteLog(id) {
   updateProfileStats(logs);
 }
 
-export async function incrementRewatch(id) {
-  const updated = await apiFetch(`/logs/${encodeURIComponent(id)}/rewatch`, { method: 'PUT' });
-  const logs = getAllLogs();
-  const idx = logs.findIndex(l => l.id === id);
-  if (idx !== -1) logs[idx] = updated;
-  saveLogs(logs);
-  return updated;
-}
-
 // ---- Filtering ----
 
 export function getLogsByIndustry(industry) {
