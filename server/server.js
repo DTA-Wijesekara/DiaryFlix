@@ -1,5 +1,5 @@
-// CineLog — Server bootstrap.
-// Configures security headers, CORS, body parsing, rate limits, and mounts route modules.
+// DiaryFLIX — Server bootstrap.
+// Works as a traditional Express server locally AND as a Vercel serverless function.
 
 const express = require('express');
 const cors = require('cors');
@@ -10,15 +10,14 @@ const config = require('./config');
 const { initDB, closePool } = require('./db');
 const { errorHandler, notFound } = require('./middleware');
 
-const authRoutes = require('./routes/auth');
-const logRoutes = require('./routes/logs');
+const authRoutes  = require('./routes/auth');
+const logRoutes   = require('./routes/logs');
 const adminRoutes = require('./routes/admin');
 
 const app = express();
 
-// Security headers — helmet defaults are sensible.
+// Security headers
 app.use(helmet({
-  // API doesn't serve HTML, so the default CSP isn't a concern here.
   contentSecurityPolicy: false,
   crossOriginResourcePolicy: { policy: 'cross-origin' },
 }));
@@ -28,7 +27,7 @@ const corsOptions = config.cors.origins === '*'
   ? { origin: true, credentials: config.cors.credentials }
   : {
       origin(origin, cb) {
-        if (!origin) return cb(null, true); // allow tools like curl
+        if (!origin) return cb(null, true);
         if (config.cors.origins.includes(origin)) return cb(null, true);
         return cb(new Error(`CORS: origin ${origin} not allowed`));
       },
@@ -36,11 +35,11 @@ const corsOptions = config.cors.origins === '*'
     };
 app.use(cors(corsOptions));
 
-// Body parsing with a size cap
+// Body parsing
 app.use(express.json({ limit: config.bodyLimit }));
 app.use(express.urlencoded({ extended: false, limit: config.bodyLimit }));
 
-// Minimal request log (skip health checks)
+// Request log
 app.use((req, _res, next) => {
   if (req.path !== '/health') {
     console.log(`${new Date().toISOString()} ${req.method} ${req.originalUrl}`);
@@ -48,64 +47,71 @@ app.use((req, _res, next) => {
   next();
 });
 
-// Health check — no auth, no rate limit
+// Health check (no auth, no rate limit, no DB needed)
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', time: new Date().toISOString(), env: config.env });
 });
 
-// General API rate limit (applied after health check so monitors aren't throttled)
+// ── DB initialisation ────────────────────────────────────────────────────────
+// Start connecting immediately when the module loads.
+// On Vercel this happens at cold start; locally it happens when the process starts.
+const dbReady = initDB();
+
+// All /api routes wait for the DB before proceeding.
+app.use('/api', (req, res, next) => {
+  dbReady
+    .then(() => next())
+    .catch(err => {
+      console.error('[db] not ready:', err.message);
+      res.status(503).json({ error: 'Service starting up — please retry in a moment' });
+    });
+});
+
+// Rate limit
 const apiLimiter = rateLimit({
   windowMs: config.rateLimits.api.windowMs,
-  max: config.rateLimits.api.max,
+  max:      config.rateLimits.api.max,
   standardHeaders: true,
-  legacyHeaders: false,
+  legacyHeaders:   false,
 });
 app.use('/api', apiLimiter);
 
 // Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/logs', logRoutes);
+app.use('/api/auth',  authRoutes);
+app.use('/api/logs',  logRoutes);
 app.use('/api/admin', adminRoutes);
 
-// 404 + error handler (must be last)
+// 404 + error handler
 app.use(notFound);
 app.use(errorHandler);
 
-// ---- Boot ----
+// ── Local dev server ─────────────────────────────────────────────────────────
+// On Vercel the module is imported directly; app.listen() must NOT be called.
+if (!process.env.VERCEL) {
+  dbReady
+    .then(() => {
+      const server = app.listen(config.port, config.host, () => {
+        console.log(`DiaryFLIX API listening on http://${config.host}:${config.port}  [${config.env}]`);
+      });
 
-async function start() {
-  await initDB();
+      const shutdown = async (signal) => {
+        console.log(`\n${signal} received — shutting down.`);
+        server.close(async (err) => {
+          if (err) console.error('Error closing HTTP server:', err);
+          await closePool();
+          process.exit(err ? 1 : 0);
+        });
+        setTimeout(() => process.exit(1), 10_000).unref();
+      };
 
-  const server = app.listen(config.port, config.host, () => {
-    console.log(`CineLog API listening on http://${config.host}:${config.port}  [${config.env}]`);
-  });
-
-  const shutdown = async (signal) => {
-    console.log(`\n${signal} received — shutting down.`);
-    server.close(async (err) => {
-      if (err) console.error('Error closing HTTP server:', err);
-      await closePool();
-      process.exit(err ? 1 : 0);
+      process.on('SIGINT',  () => shutdown('SIGINT'));
+      process.on('SIGTERM', () => shutdown('SIGTERM'));
+    })
+    .catch(err => {
+      console.error('Failed to start server:', err);
+      process.exit(1);
     });
-    // Hard-exit fallback
-    setTimeout(() => process.exit(1), 10_000).unref();
-  };
-
-  process.on('SIGINT', () => shutdown('SIGINT'));
-  process.on('SIGTERM', () => shutdown('SIGTERM'));
-
-  process.on('unhandledRejection', (err) => {
-    console.error('Unhandled promise rejection:', err);
-  });
-  process.on('uncaughtException', (err) => {
-    console.error('Uncaught exception:', err);
-    // Best-effort: close the HTTP server then exit.
-    server.close(() => process.exit(1));
-    setTimeout(() => process.exit(1), 5000).unref();
-  });
 }
 
-start().catch(err => {
-  console.error('Failed to start server:', err);
-  process.exit(1);
-});
+// Export for Vercel serverless
+module.exports = app;

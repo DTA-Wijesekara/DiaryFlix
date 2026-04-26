@@ -2,11 +2,14 @@ Simple — you need two terminals, one for each:
 
 Terminal 1 — Backend:
 
-
 cd server
 npm start
-Terminal 2 — Frontend:
 
+npm run dev
+npm install
+
+
+Terminal 2 — Frontend:
 
 cd frontend
 npm run dev
@@ -17,9 +20,5 @@ The only thing that changed from before is you now cd frontend instead of runnin
 If you don't have the server dependencies installed yet:
 
 
-cd server
-npm install
 
-
-
-v-1.5
+v-1.6

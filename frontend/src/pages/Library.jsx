@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, LayoutGrid, List as ListIcon, Star, RefreshCw } from 'lucide-react';
-import { getAllLogs, getLogsByIndustry, searchLogs, getStats } from '../services/storage';
+import { getAllLogs, getLogsByIndustry, searchLogs } from '../services/storage';
 import { getPosterUrl } from '../services/tmdb';
 import IndustryTabs from '../components/IndustryTabs';
 import MovieCard from '../components/MovieCard';
@@ -16,17 +16,51 @@ function formatDate(iso) {
   return `${MONTH_ABBR[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
 }
 
+// Merge duplicate entries of the same film into one card.
+// Groups by tmdbId first, falls back to normalised title.
+// The most recently watched entry is used as the display card.
+// rewatchCount is recalculated as (number of diary entries - 1).
+function deduplicateLogs(logs) {
+  const groups = new Map();
+  for (const log of logs) {
+    const key = log.tmdbId
+      ? `id:${log.tmdbId}`
+      : `title:${(log.title || '').toLowerCase().trim()}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(log);
+  }
+  return Array.from(groups.values()).map(entries => {
+    const sorted = [...entries].sort(
+      (a, b) => new Date(b.dateWatched || b.createdAt) - new Date(a.dateWatched || a.createdAt)
+    );
+    const primary = sorted[0];
+    return {
+      ...primary,
+      // Recalculate: each diary entry = one watch, so rewatches = entries - 1
+      rewatchCount: entries.length - 1,
+    };
+  });
+}
+
 export default function Library() {
   const [industry, setIndustry] = useState('all');
   const [query, setQuery] = useState('');
   const [viewMode, setViewMode] = useState('grid');
   const [sortBy, setSortBy] = useState('date-desc');
 
-  const stats = useMemo(() => getStats(), []);
+  // Industry counts based on unique films (not total diary entries)
+  const industryCounts = useMemo(() => {
+    const counts = {};
+    deduplicateLogs(getAllLogs()).forEach(l => {
+      const ind = l.industry || 'other';
+      counts[ind] = (counts[ind] || 0) + 1;
+    });
+    return counts;
+  }, []);
 
   const logs = useMemo(() => {
     const base = query.trim() ? searchLogs(query) : getLogsByIndustry(industry);
-    const arr = [...base];
+    const deduped = deduplicateLogs(base);
     const cmp = {
       'date-desc':   (a, b) => new Date(b.dateWatched || b.createdAt) - new Date(a.dateWatched || a.createdAt),
       'date-asc':    (a, b) => new Date(a.dateWatched || a.createdAt) - new Date(b.dateWatched || b.createdAt),
@@ -34,8 +68,8 @@ export default function Library() {
       'rating-asc':  (a, b) => (a.rating || 0) - (b.rating || 0),
       'title-asc':   (a, b) => (a.title || '').localeCompare(b.title || ''),
     }[sortBy];
-    if (cmp) arr.sort(cmp);
-    return arr;
+    if (cmp) deduped.sort(cmp);
+    return deduped;
   }, [industry, query, sortBy]);
 
   return (
@@ -43,7 +77,7 @@ export default function Library() {
       <header className="page-header">
         <span className="eyebrow">The Library</span>
         <h1>Every film you've logged</h1>
-        <p>{logs.length} {logs.length === 1 ? 'entry' : 'entries'}{query ? ` matching "${query}"` : ''}.</p>
+        <p>{logs.length} {logs.length === 1 ? 'film' : 'films'}{query ? ` matching "${query}"` : ''}.</p>
       </header>
 
       <div className="library-controls">
@@ -99,7 +133,7 @@ export default function Library() {
           <IndustryTabs
             value={industry}
             onChange={setIndustry}
-            counts={stats.byIndustry}
+            counts={industryCounts}
           />
         </div>
       )}
