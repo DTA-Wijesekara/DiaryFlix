@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -10,26 +10,34 @@ import {
   Settings,
   Shield,
   LogOut,
+  MoreHorizontal,
+  X,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import './Sidebar.css';
 
 const navItems = [
-  { path: '/',        icon: LayoutDashboard, label: 'Overview' },
-  { path: '/diary',   icon: BookOpen,        label: 'Diary' },
-  { path: '/log',     icon: PlusCircle,      label: 'New Entry' },
-  { path: '/library', icon: LibraryIcon,     label: 'Library' },
-  { path: '/rewatch', icon: RefreshCw,       label: 'Rewatch' },
-  { path: '/stats',   icon: BarChart3,       label: 'Statistics' },
-  { path: '/settings',icon: Settings,        label: 'Settings' },
+  { path: '/',         icon: LayoutDashboard, label: 'Overview' },
+  { path: '/diary',    icon: BookOpen,        label: 'Diary' },
+  { path: '/log',      icon: PlusCircle,      label: 'New Entry' },
+  { path: '/library',  icon: LibraryIcon,     label: 'Library' },
+  { path: '/rewatch',  icon: RefreshCw,       label: 'Rewatch' },
+  { path: '/stats',    icon: BarChart3,       label: 'Statistics' },
+  { path: '/settings', icon: Settings,        label: 'Settings' },
 ];
+
+// Primary tabs visible in the bottom bar
+const primaryNav = navItems.slice(0, 4);
+// Secondary items shown in the More drawer
+const secondaryNav = navItems.slice(4);
 
 export default function Sidebar() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const isAdminUser = user?.role === 'admin';
+  const [moreOpen, setMoreOpen] = useState(false);
 
-  const initials = (user?.displayName || 'C')
+  const initials = (user?.displayName || 'U')
     .split(' ')
     .map(s => s[0])
     .slice(0, 2)
@@ -37,12 +45,16 @@ export default function Sidebar() {
     .toUpperCase();
 
   const handleLogout = () => {
+    setMoreOpen(false);
     logout();
     navigate('/login');
   };
 
+  const closeMore = () => setMoreOpen(false);
+
   return (
     <>
+      {/* ── Desktop sidebar ─────────────────────────────── */}
       <aside className="sidebar" aria-label="Main navigation">
         <div className="sidebar-brand">
           <div className="sidebar-brand-mark" aria-hidden="true">
@@ -107,23 +119,98 @@ export default function Sidebar() {
         </div>
       </aside>
 
+      {/* ── Mobile bottom nav ───────────────────────────── */}
       <nav className="mobile-nav" aria-label="Mobile navigation">
-        {[navItems[0], navItems[1], navItems[2], navItems[3]].map(item => (
+        {primaryNav.map(item => (
           <NavLink
             key={item.path}
             to={item.path}
             end={item.path === '/'}
             className={({ isActive }) => `mobile-nav-link ${isActive ? 'active' : ''}`}
           >
-            <item.icon size={19} strokeWidth={1.7} />
+            <item.icon size={20} strokeWidth={1.7} />
             <span>{item.label}</span>
           </NavLink>
         ))}
-        <button className="mobile-nav-link" onClick={handleLogout}>
-          <LogOut size={19} strokeWidth={1.7} />
-          <span>Exit</span>
+
+        <button
+          className={`mobile-nav-link ${moreOpen ? 'active' : ''}`}
+          onClick={() => setMoreOpen(true)}
+          aria-label="More options"
+          aria-expanded={moreOpen}
+        >
+          <MoreHorizontal size={20} strokeWidth={1.7} />
+          <span>More</span>
         </button>
       </nav>
+
+      {/* ── More bottom sheet ───────────────────────────── */}
+      {moreOpen && (
+        <div
+          className="mobile-sheet-overlay"
+          onClick={closeMore}
+          aria-modal="true"
+          role="dialog"
+          aria-label="More navigation"
+        >
+          <div className="mobile-sheet" onClick={e => e.stopPropagation()}>
+
+            {/* Sheet handle */}
+            <div className="mobile-sheet-handle" />
+
+            {/* User info header */}
+            <div className="mobile-sheet-header">
+              <div className="mobile-sheet-user">
+                <div className="mobile-sheet-avatar">{initials}</div>
+                <div className="mobile-sheet-user-info">
+                  <span className="mobile-sheet-user-name">{user?.displayName || 'User'}</span>
+                  <span className="mobile-sheet-user-role">
+                    {user?.role === 'admin' ? 'Admin' : 'Member'}
+                  </span>
+                </div>
+              </div>
+              <button className="mobile-sheet-close" onClick={closeMore} aria-label="Close">
+                <X size={18} strokeWidth={2} />
+              </button>
+            </div>
+
+            {/* Secondary nav items */}
+            <nav className="mobile-sheet-nav">
+              {secondaryNav.map(item => (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  className={({ isActive }) => `mobile-sheet-link ${isActive ? 'active' : ''}`}
+                  onClick={closeMore}
+                >
+                  <item.icon size={20} strokeWidth={1.7} />
+                  <span>{item.label}</span>
+                </NavLink>
+              ))}
+
+              {isAdminUser && (
+                <NavLink
+                  to="/admin"
+                  className={({ isActive }) => `mobile-sheet-link mobile-sheet-link-admin ${isActive ? 'active' : ''}`}
+                  onClick={closeMore}
+                >
+                  <Shield size={20} strokeWidth={1.7} />
+                  <span>Admin</span>
+                </NavLink>
+              )}
+            </nav>
+
+            {/* Sign out */}
+            <div className="mobile-sheet-footer">
+              <button className="mobile-sheet-logout" onClick={handleLogout}>
+                <LogOut size={18} strokeWidth={1.8} />
+                Sign out
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
     </>
   );
 }
