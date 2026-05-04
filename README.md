@@ -297,4 +297,4 @@ If you don't have the server dependencies installed yet:
 
 
 
-v1.8
+v2.0
