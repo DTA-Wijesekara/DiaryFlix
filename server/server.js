@@ -10,9 +10,10 @@ const config = require('./config');
 const { initDB, closePool } = require('./db');
 const { errorHandler, notFound } = require('./middleware');
 
-const authRoutes  = require('./routes/auth');
-const logRoutes   = require('./routes/logs');
-const adminRoutes = require('./routes/admin');
+const authRoutes     = require('./routes/auth');
+const logRoutes      = require('./routes/logs');
+const adminRoutes    = require('./routes/admin');
+const wishlistRoutes = require('./routes/wishlist');
 
 const app = express();
 
@@ -77,9 +78,10 @@ const apiLimiter = rateLimit({
 app.use('/api', apiLimiter);
 
 // Routes
-app.use('/api/auth',  authRoutes);
-app.use('/api/logs',  logRoutes);
-app.use('/api/admin', adminRoutes);
+app.use('/api/auth',     authRoutes);
+app.use('/api/logs',     logRoutes);
+app.use('/api/admin',    adminRoutes);
+app.use('/api/wishlist', wishlistRoutes);
 
 // 404 + error handler
 app.use(notFound);

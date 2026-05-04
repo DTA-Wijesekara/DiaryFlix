@@ -47,15 +47,21 @@ async function ensureSchema() {
       id            VARCHAR(100) PRIMARY KEY,
       email         VARCHAR(255) UNIQUE NOT NULL,
       display_name  VARCHAR(255) NOT NULL,
-      password_hash VARCHAR(255) NOT NULL,
-      salt          VARCHAR(255) NOT NULL,
+      password_hash VARCHAR(255) NULL,
+      salt          VARCHAR(255) NULL,
       role          VARCHAR(20)  NOT NULL DEFAULT 'user',
       avatar        VARCHAR(64),
       is_active     BOOLEAN      NOT NULL DEFAULT TRUE,
+      google_id     VARCHAR(64)  NULL,
       created_at    TIMESTAMP    NOT NULL DEFAULT NOW(),
       last_login    TIMESTAMP    NULL
     )
   `);
+
+  // Migrations for pre-existing databases (idempotent — safe to run repeatedly)
+  await p.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id VARCHAR(64) NULL`);
+  await p.query(`ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL`);
+  await p.query(`ALTER TABLE users ALTER COLUMN salt DROP NOT NULL`);
 
   await p.query(`
     CREATE TABLE IF NOT EXISTS movies (
@@ -100,10 +106,44 @@ async function ensureSchema() {
     )
   `);
 
+  await p.query(`
+    CREATE TABLE IF NOT EXISTS wishlist (
+      id            VARCHAR(100) PRIMARY KEY,
+      user_id       VARCHAR(100) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      tmdb_id       INTEGER      NULL,
+      title         VARCHAR(500) NOT NULL,
+      type          VARCHAR(32)  NULL,
+      year          VARCHAR(16)  NULL,
+      poster_path   VARCHAR(255) NULL,
+      backdrop_path VARCHAR(255) NULL,
+      overview      TEXT         NULL,
+      industry      VARCHAR(64)  NULL,
+      planned_date  VARCHAR(32)  NULL,
+      note          TEXT         NULL,
+      source        VARCHAR(255) NULL,
+      created_at    TIMESTAMP    NOT NULL DEFAULT NOW(),
+      updated_at    TIMESTAMP    NOT NULL DEFAULT NOW()
+    )
+  `);
+
+  await p.query(`
+    CREATE TABLE IF NOT EXISTS password_reset_tokens (
+      token_hash  VARCHAR(128) PRIMARY KEY,
+      user_id     VARCHAR(100) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      expires_at  TIMESTAMP    NOT NULL,
+      used_at     TIMESTAMP    NULL,
+      created_at  TIMESTAMP    NOT NULL DEFAULT NOW()
+    )
+  `);
+
+  await p.query(`CREATE INDEX IF NOT EXISTS ix_password_reset_user ON password_reset_tokens (user_id)`);
+  await p.query(`CREATE UNIQUE INDEX IF NOT EXISTS ix_users_google_id ON users (google_id) WHERE google_id IS NOT NULL`);
   await p.query(`CREATE INDEX IF NOT EXISTS ix_movies_user_tmdb    ON movies    (user_id, tmdb_id) WHERE tmdb_id IS NOT NULL`);
   await p.query(`CREATE INDEX IF NOT EXISTS ix_watchlogs_movie      ON watchlogs (movie_id)`);
   await p.query(`CREATE INDEX IF NOT EXISTS ix_watchlogs_user_date  ON watchlogs (user_id, date_watched DESC)`);
   await p.query(`CREATE INDEX IF NOT EXISTS ix_watchlogs_user_creat ON watchlogs (user_id, created_at  DESC)`);
+  await p.query(`CREATE INDEX IF NOT EXISTS ix_wishlist_user_date   ON wishlist  (user_id, planned_date)`);
+  await p.query(`CREATE INDEX IF NOT EXISTS ix_wishlist_user_creat  ON wishlist  (user_id, created_at DESC)`);
 }
 
 async function maybeSeedAdmin() {

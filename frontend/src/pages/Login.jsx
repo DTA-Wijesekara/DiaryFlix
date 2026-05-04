@@ -1,14 +1,15 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { LogIn, Eye, EyeOff, Mail, Lock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import Toast from '../components/Toast';
 import AuthAside from '../components/AuthAside';
+import GoogleSignInButton from '../components/GoogleSignInButton';
 import './Auth.css';
 
 export default function Login() {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, loginWithGoogle } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -28,6 +29,18 @@ export default function Login() {
     }
   };
 
+  const handleGoogle = useCallback(async (credential) => {
+    setLoading(true);
+    try {
+      await loginWithGoogle(credential);
+      navigate('/');
+    } catch (err) {
+      setToast({ message: err.message || 'Google sign-in failed', type: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  }, [loginWithGoogle, navigate]);
+
   return (
     <div className="auth-page" id="login-page">
       <AuthAside
@@ -42,6 +55,12 @@ export default function Login() {
               <h2>Welcome back</h2>
               <p>Sign in to open your diary.</p>
             </div>
+
+            <div className="auth-google">
+              <GoogleSignInButton onCredential={handleGoogle} onError={(err) => setToast({ message: err.message, type: 'error' })} />
+            </div>
+
+            <div className="auth-divider"><span>or</span></div>
 
             <form className="auth-form" onSubmit={handleSubmit} noValidate>
               <div className="auth-input-group">
@@ -82,6 +101,10 @@ export default function Login() {
                 >
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
+              </div>
+
+              <div className="auth-helper-row">
+                <Link to="/forgot-password" className="auth-forgot-link">Forgot password?</Link>
               </div>
 
               <button

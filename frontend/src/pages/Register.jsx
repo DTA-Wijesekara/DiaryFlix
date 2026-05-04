@@ -1,18 +1,31 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { UserPlus, Eye, EyeOff, User, Mail, Lock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import Toast from '../components/Toast';
 import AuthAside from '../components/AuthAside';
+import GoogleSignInButton from '../components/GoogleSignInButton';
 import './Auth.css';
 
 export default function Register() {
   const navigate = useNavigate();
-  const { register } = useAuth();
+  const { register, loginWithGoogle } = useAuth();
   const [form, setForm] = useState({ displayName: '', email: '', password: '', confirmPassword: '' });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
+
+  const handleGoogle = useCallback(async (credential) => {
+    setLoading(true);
+    try {
+      await loginWithGoogle(credential);
+      navigate('/');
+    } catch (err) {
+      setToast({ message: err.message || 'Google sign-in failed', type: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  }, [loginWithGoogle, navigate]);
 
   const handleChange = (field, value) => {
     setForm(prev => ({ ...prev, [field]: value }));
@@ -55,6 +68,12 @@ export default function Register() {
               <h2>Open a new diary</h2>
               <p>Name your journal and create an account.</p>
             </div>
+
+            <div className="auth-google">
+              <GoogleSignInButton onCredential={handleGoogle} onError={(err) => setToast({ message: err.message, type: 'error' })} />
+            </div>
+
+            <div className="auth-divider"><span>or</span></div>
 
             <form className="auth-form" onSubmit={handleSubmit} noValidate>
               <div className="auth-input-group">
