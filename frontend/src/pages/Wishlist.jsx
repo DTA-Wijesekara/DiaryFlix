@@ -10,6 +10,7 @@ import {
 import { getPosterUrl, detectIndustry, getMovieDetails, hasTMDBKey } from '../services/tmdb';
 import MovieSearch from '../components/MovieSearch';
 import Toast from '../components/Toast';
+import { track } from '../analytics';
 import './Wishlist.css';
 
 const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -55,6 +56,7 @@ export default function Wishlist() {
   const handleAdd = async (entry) => {
     try {
       await addWishlist(entry);
+      track('wishlist_item_added', { title: entry.title, has_date: !!entry.watch_date });
       refresh();
       setShowAdd(false);
       setToast({ message: `"${entry.title}" added to your wishlist`, type: 'success' });

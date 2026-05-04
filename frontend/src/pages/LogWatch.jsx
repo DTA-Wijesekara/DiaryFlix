@@ -10,6 +10,7 @@ import StarRating from '../components/StarRating';
 import SongEntry from '../components/SongEntry';
 import QuoteEntry from '../components/QuoteEntry';
 import Toast from '../components/Toast';
+import { track } from '../analytics';
 import './LogWatch.css';
 
 const INDUSTRY_OPTIONS = [
@@ -177,6 +178,12 @@ export default function LogWatch() {
     setSaving(true);
     try {
       await addLog(entry);
+      track('film_logged', {
+        title: entry.title,
+        rating: entry.rating,
+        industry: entry.industry,
+        from_wishlist: !!wishlistId,
+      });
       if (wishlistId) {
         try { await deleteWishlist(wishlistId); } catch { /* non-fatal */ }
       }

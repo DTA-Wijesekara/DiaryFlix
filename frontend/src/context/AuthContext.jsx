@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { getSession, login as authLogin, register as authRegister, logout as authLogout, fetchCurrentUser, loginWithGoogle as authLoginWithGoogle } from '../services/auth';
 import { fetchLogsFromServer } from '../services/storage';
 import { fetchWishlistFromServer } from '../services/wishlist';
+import { identifyUser, resetAnalyticsUser } from '../analytics';
 
 const AuthContext = createContext(null);
 
@@ -13,7 +14,9 @@ export function AuthProvider({ children }) {
     async function initAuth() {
       const currentUser = await fetchCurrentUser();
       if (currentUser) {
-        setUser(getSession());
+        const session = getSession();
+        setUser(session);
+        identifyUser(session);
         await Promise.all([fetchLogsFromServer(), fetchWishlistFromServer()]);
       } else {
         authLogout();
@@ -31,27 +34,34 @@ export function AuthProvider({ children }) {
 
   const login = useCallback(async (email, password) => {
     const result = await authLogin(email, password);
-    setUser(getSession());
+    const session = getSession();
+    setUser(session);
+    identifyUser(session);
     await fetchLogsFromServer();
     return result;
   }, []);
 
   const register = useCallback(async (data) => {
     const result = await authRegister(data);
-    setUser(getSession());
+    const session = getSession();
+    setUser(session);
+    identifyUser(session);
     await fetchLogsFromServer();
     return result;
   }, []);
 
   const loginWithGoogle = useCallback(async (credential) => {
     const result = await authLoginWithGoogle(credential);
-    setUser(getSession());
+    const session = getSession();
+    setUser(session);
+    identifyUser(session);
     await Promise.all([fetchLogsFromServer(), fetchWishlistFromServer()]);
     return result;
   }, []);
 
   const logout = useCallback(() => {
     authLogout();
+    resetAnalyticsUser();
     setUser(null);
   }, []);
 
