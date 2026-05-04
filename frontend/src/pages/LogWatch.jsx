@@ -1,7 +1,8 @@
-import React, { useState, useCallback } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { Save, Film, Tv, Users, Tag, AlertCircle, RefreshCw } from 'lucide-react';
+import React, { useState, useCallback, useEffect } from 'react';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
+import { Save, Film, Tv, Users, Tag, AlertCircle, RefreshCw, Bookmark } from 'lucide-react';
 import { addLog, getAllLogs } from '../services/storage';
+import { getWishlistById, deleteWishlist } from '../services/wishlist';
 import { getMovieDetails, getPosterUrl, detectIndustry, hasTMDBKey } from '../services/tmdb';
 import MovieSearch from '../components/MovieSearch';
 import MoodPicker from '../components/MoodPicker';
@@ -27,9 +28,9 @@ const PLATFORM_OPTIONS = [
   'YouTube', 'Theater', 'TV', 'Downloaded', 'Other',
 ];
 
-function buildInitialForm(rewatchOf) {
+function buildInitialForm(seed) {
   const today = new Date().toISOString().split('T')[0];
-  if (!rewatchOf) {
+  if (!seed) {
     return {
       title: '', type: 'movie', year: '', tmdbId: null,
       posterPath: '', posterUrl: '', backdropPath: '', overview: '',
@@ -40,21 +41,21 @@ function buildInitialForm(rewatchOf) {
     };
   }
   return {
-    title: rewatchOf.title || '',
-    type: rewatchOf.type || 'movie',
-    year: rewatchOf.year || '',
-    tmdbId: rewatchOf.tmdbId || null,
-    posterPath: rewatchOf.posterPath || '',
-    posterUrl: rewatchOf.posterUrl || (rewatchOf.posterPath ? getPosterUrl(rewatchOf.posterPath) : ''),
-    backdropPath: rewatchOf.backdropPath || '',
-    overview: rewatchOf.overview || '',
-    industry: rewatchOf.industry || '',
-    actors: rewatchOf.actors?.length > 0 ? rewatchOf.actors : [''],
-    actresses: rewatchOf.actresses?.length > 0 ? rewatchOf.actresses : [''],
-    director: rewatchOf.director || '',
-    genres: rewatchOf.genres || [],
-    runtime: rewatchOf.runtime || 0,
-    category: rewatchOf.category || '',
+    title: seed.title || '',
+    type: seed.type || 'movie',
+    year: seed.year || '',
+    tmdbId: seed.tmdbId || null,
+    posterPath: seed.posterPath || '',
+    posterUrl: seed.posterUrl || (seed.posterPath ? getPosterUrl(seed.posterPath) : ''),
+    backdropPath: seed.backdropPath || '',
+    overview: seed.overview || '',
+    industry: seed.industry || '',
+    actors: seed.actors?.length > 0 ? seed.actors : [''],
+    actresses: seed.actresses?.length > 0 ? seed.actresses : [''],
+    director: seed.director || '',
+    genres: seed.genres || [],
+    runtime: seed.runtime || 0,
+    category: seed.category || '',
     // Reset watch-specific fields so the user fills them fresh
     dateWatched: today,
     rating: 0,
@@ -72,12 +73,36 @@ function buildInitialForm(rewatchOf) {
 export default function LogWatch() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const rewatchOf = location.state?.rewatchOf || null;
+
+  const wishlistId = searchParams.get('wishlistId');
+  const wishlistSeed = wishlistId ? getWishlistById(wishlistId) : null;
 
   const [toast, setToast] = useState(null);
   const [duplicateLogId, setDuplicateLogId] = useState(null);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState(() => buildInitialForm(rewatchOf));
+  const [form, setForm] = useState(() => buildInitialForm(rewatchOf || wishlistSeed));
+
+  // Fill in cast/director/runtime from TMDB when seeded from a wishlist item that has a tmdbId.
+  useEffect(() => {
+    if (!wishlistSeed?.tmdbId || rewatchOf) return;
+    let cancelled = false;
+    getMovieDetails(wishlistSeed.tmdbId, wishlistSeed.type).then(details => {
+      if (cancelled || !details) return;
+      setForm(prev => ({
+        ...prev,
+        actors: details.actors.length > 0 ? details.actors : prev.actors,
+        actresses: details.actresses.length > 0 ? details.actresses : prev.actresses,
+        director: details.director || prev.director,
+        genres: details.genres || prev.genres,
+        category: prev.category || (details.genres ? details.genres.join(', ') : ''),
+        runtime: details.runtime || prev.runtime,
+        industry: prev.industry || detectIndustry(details),
+      }));
+    });
+    return () => { cancelled = true; };
+  }, [wishlistSeed, rewatchOf]);
 
   const updateField = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
 
@@ -152,6 +177,9 @@ export default function LogWatch() {
     setSaving(true);
     try {
       await addLog(entry);
+      if (wishlistId) {
+        try { await deleteWishlist(wishlistId); } catch { /* non-fatal */ }
+      }
       setToast({ message: `"${form.title}" saved to your diary`, type: 'success' });
       setTimeout(() => navigate('/diary'), 900);
     } catch (err) {
@@ -170,6 +198,11 @@ export default function LogWatch() {
             <h1>Log a Rewatch 🔁</h1>
             <p>Recording a new watch of <strong>{rewatchOf.title}</strong> — this will be a separate diary entry.</p>
           </>
+        ) : wishlistSeed ? (
+          <>
+            <h1>Log a Watch 🎬</h1>
+            <p>Logging <strong>{wishlistSeed.title}</strong> from your wishlist — fill in the details below.</p>
+          </>
         ) : (
           <>
             <h1>Log a Watch 🎬</h1>
@@ -186,12 +219,19 @@ export default function LogWatch() {
         </div>
       )}
 
+      {wishlistSeed && !rewatchOf && (
+        <div className="log-rewatch-banner">
+          <Bookmark size={15} />
+          From your wishlist — saving this entry will remove <strong>{wishlistSeed.title}</strong> from your wishlist.
+        </div>
+      )}
+
       <form className="log-form" onSubmit={handleSubmit}>
         {/* Movie / Search */}
         <div className="log-section glass-card-static" style={{ position: 'relative', zIndex: 10 }}>
           <h3 className="log-section-title"><Film size={18} /> Movie / TV Series</h3>
 
-          {!rewatchOf && <MovieSearch onSelect={handleMovieSelect} />}
+          {!rewatchOf && !wishlistSeed && <MovieSearch onSelect={handleMovieSelect} />}
 
           {duplicateLogId && !rewatchOf && (
             <div className="log-duplicate-warn">

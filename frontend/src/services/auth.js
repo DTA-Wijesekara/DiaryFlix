@@ -106,6 +106,15 @@ export async function login(email, password) {
   return data.user;
 }
 
+export async function loginWithGoogle(credential) {
+  const data = await apiFetch('/auth/google', {
+    method: 'POST',
+    body: { credential },
+  });
+  setSession(data.token, data.user);
+  return data.user;
+}
+
 export function logout() {
   localStorage.removeItem(STORAGE_KEYS.SESSION);
   localStorage.removeItem(STORAGE_KEYS.TOKEN);
@@ -140,6 +149,20 @@ export async function changePassword(currentPassword, newPassword) {
   return apiFetch('/auth/change-password', {
     method: 'POST',
     body: { currentPassword, newPassword },
+  });
+}
+
+export async function forgotPassword(email) {
+  return apiFetch('/auth/forgot-password', {
+    method: 'POST',
+    body: { email },
+  });
+}
+
+export async function resetPassword(token, newPassword) {
+  return apiFetch('/auth/reset-password', {
+    method: 'POST',
+    body: { token, newPassword },
   });
 }
 

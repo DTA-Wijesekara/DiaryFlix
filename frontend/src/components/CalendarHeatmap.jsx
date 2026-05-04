@@ -43,8 +43,6 @@ export default function CalendarHeatmap({ logs = [] }) {
     const weeks = [];
     const cursor = new Date(start);
     let max = 0;
-    const monthMarkers = [];
-    let lastMonth = -1;
 
     while (cursor <= end) {
       const week = [];
@@ -56,14 +54,20 @@ export default function CalendarHeatmap({ logs = [] }) {
         week.push({ key, date: dayCopy, count, items: byDate.get(key) || [] });
         cursor.setDate(cursor.getDate() + 1);
       }
-      // Use the month of the first day of this week for the label
-      const m = week[0].date.getMonth();
-      if (m !== lastMonth && week[0].date.getDate() <= 7) {
-        monthMarkers.push({ month: m, col: weeks.length });
-        lastMonth = m;
-      }
       weeks.push(week);
     }
+
+    // Reverse so today (most recent) is on the left
+    weeks.reverse();
+    const monthMarkers = [];
+    let seenMonth = -1;
+    weeks.forEach((week, wi) => {
+      const m = week[0].date.getMonth();
+      if (m !== seenMonth) {
+        monthMarkers.push({ month: m, col: wi });
+        seenMonth = m;
+      }
+    });
 
     return { weeks, monthMarkers, byDate, max };
   }, [logs]);

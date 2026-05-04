@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -11,15 +11,18 @@ import {
   Shield,
   LogOut,
   MoreHorizontal,
+  Bookmark,
   X,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { getDueCount, getAllWishlist } from '../services/wishlist';
 import './Sidebar.css';
 
 const navItems = [
   { path: '/',         icon: LayoutDashboard, label: 'Overview' },
   { path: '/diary',    icon: BookOpen,        label: 'Diary' },
   { path: '/log',      icon: PlusCircle,      label: 'New Entry' },
+  { path: '/wishlist', icon: Bookmark,        label: 'Wishlist',  badgeKey: 'wishlistDue' },
   { path: '/library',  icon: LibraryIcon,     label: 'Library' },
   { path: '/rewatch',  icon: RefreshCw,       label: 'Rewatch' },
   { path: '/stats',    icon: BarChart3,       label: 'Statistics' },
@@ -36,6 +39,18 @@ export default function Sidebar() {
   const { user, logout } = useAuth();
   const isAdminUser = user?.role === 'admin';
   const [moreOpen, setMoreOpen] = useState(false);
+  const [wishlistDue, setWishlistDue] = useState(() => getDueCount(getAllWishlist()));
+
+  useEffect(() => {
+    const sync = () => setWishlistDue(getDueCount(getAllWishlist()));
+    window.addEventListener('cinelog:wishlist-changed', sync);
+    return () => window.removeEventListener('cinelog:wishlist-changed', sync);
+  }, []);
+
+  const getBadge = (item) => {
+    if (item.badgeKey === 'wishlistDue' && wishlistDue > 0) return wishlistDue;
+    return null;
+  };
 
   const initials = (user?.displayName || 'U')
     .split(' ')
@@ -74,17 +89,21 @@ export default function Sidebar() {
         </div>
 
         <nav className="sidebar-nav" aria-label="Primary">
-          {navItems.map(item => (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              end={item.path === '/'}
-              className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
-            >
-              <item.icon size={17} strokeWidth={1.8} />
-              <span>{item.label}</span>
-            </NavLink>
-          ))}
+          {navItems.map(item => {
+            const badge = getBadge(item);
+            return (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                end={item.path === '/'}
+                className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
+              >
+                <item.icon size={17} strokeWidth={1.8} />
+                <span>{item.label}</span>
+                {badge != null && <span className="sidebar-badge" aria-label={`${badge} due`}>{badge}</span>}
+              </NavLink>
+            );
+          })}
 
           {isAdminUser && (
             <>
@@ -121,17 +140,21 @@ export default function Sidebar() {
 
       {/* ── Mobile bottom nav ───────────────────────────── */}
       <nav className="mobile-nav" aria-label="Mobile navigation">
-        {primaryNav.map(item => (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            end={item.path === '/'}
-            className={({ isActive }) => `mobile-nav-link ${isActive ? 'active' : ''}`}
-          >
-            <item.icon size={20} strokeWidth={1.7} />
-            <span>{item.label}</span>
-          </NavLink>
-        ))}
+        {primaryNav.map(item => {
+          const badge = getBadge(item);
+          return (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              end={item.path === '/'}
+              className={({ isActive }) => `mobile-nav-link ${isActive ? 'active' : ''}`}
+            >
+              <item.icon size={20} strokeWidth={1.7} />
+              <span>{item.label}</span>
+              {badge != null && <span className="mobile-nav-badge" aria-label={`${badge} due`}>{badge}</span>}
+            </NavLink>
+          );
+        })}
 
         <button
           className={`mobile-nav-link ${moreOpen ? 'active' : ''}`}
@@ -176,17 +199,21 @@ export default function Sidebar() {
 
             {/* Secondary nav items */}
             <nav className="mobile-sheet-nav">
-              {secondaryNav.map(item => (
-                <NavLink
-                  key={item.path}
-                  to={item.path}
-                  className={({ isActive }) => `mobile-sheet-link ${isActive ? 'active' : ''}`}
-                  onClick={closeMore}
-                >
-                  <item.icon size={20} strokeWidth={1.7} />
-                  <span>{item.label}</span>
-                </NavLink>
-              ))}
+              {secondaryNav.map(item => {
+                const badge = getBadge(item);
+                return (
+                  <NavLink
+                    key={item.path}
+                    to={item.path}
+                    className={({ isActive }) => `mobile-sheet-link ${isActive ? 'active' : ''}`}
+                    onClick={closeMore}
+                  >
+                    <item.icon size={20} strokeWidth={1.7} />
+                    <span>{item.label}</span>
+                    {badge != null && <span className="sidebar-badge" aria-label={`${badge} due`}>{badge}</span>}
+                  </NavLink>
+                );
+              })}
 
               {isAdminUser && (
                 <NavLink

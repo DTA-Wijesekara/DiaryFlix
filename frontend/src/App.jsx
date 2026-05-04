@@ -5,12 +5,15 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Sidebar from './components/Sidebar';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import Dashboard from './pages/Dashboard';
 import Diary from './pages/Diary';
 import LogWatch from './pages/LogWatch';
 import Library from './pages/Library';
 import MovieDetail from './pages/MovieDetail';
 import SmartRewatch from './pages/SmartRewatch';
+import Wishlist from './pages/Wishlist';
 import Statistics from './pages/Statistics';
 import Settings from './pages/Settings';
 import AdminDashboard from './pages/AdminDashboard';
@@ -35,6 +38,8 @@ function AppContent() {
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     );
@@ -64,6 +69,9 @@ function AppContent() {
           <Route path="/rewatch" element={
             <ProtectedRoute><SmartRewatch /></ProtectedRoute>
           } />
+          <Route path="/wishlist" element={
+            <ProtectedRoute><Wishlist /></ProtectedRoute>
+          } />
           <Route path="/stats" element={
             <ProtectedRoute><Statistics /></ProtectedRoute>
           } />
@@ -75,6 +83,8 @@ function AppContent() {
           } />
           <Route path="/login" element={<Navigate to="/" replace />} />
           <Route path="/register" element={<Navigate to="/" replace />} />
+          <Route path="/forgot-password" element={<Navigate to="/" replace />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

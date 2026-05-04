@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { getSession, login as authLogin, register as authRegister, logout as authLogout, fetchCurrentUser } from '../services/auth';
+import { getSession, login as authLogin, register as authRegister, logout as authLogout, fetchCurrentUser, loginWithGoogle as authLoginWithGoogle } from '../services/auth';
 import { fetchLogsFromServer } from '../services/storage';
+import { fetchWishlistFromServer } from '../services/wishlist';
 
 const AuthContext = createContext(null);
 
@@ -13,7 +14,7 @@ export function AuthProvider({ children }) {
       const currentUser = await fetchCurrentUser();
       if (currentUser) {
         setUser(getSession());
-        await fetchLogsFromServer();
+        await Promise.all([fetchLogsFromServer(), fetchWishlistFromServer()]);
       } else {
         authLogout();
       }
@@ -42,6 +43,13 @@ export function AuthProvider({ children }) {
     return result;
   }, []);
 
+  const loginWithGoogle = useCallback(async (credential) => {
+    const result = await authLoginWithGoogle(credential);
+    setUser(getSession());
+    await Promise.all([fetchLogsFromServer(), fetchWishlistFromServer()]);
+    return result;
+  }, []);
+
   const logout = useCallback(() => {
     authLogout();
     setUser(null);
@@ -52,7 +60,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, refreshSession }}>
+    <AuthContext.Provider value={{ user, loading, login, register, loginWithGoogle, logout, refreshSession }}>
       {children}
     </AuthContext.Provider>
   );

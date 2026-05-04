@@ -81,6 +81,26 @@ const config = {
 
   bodyLimit: process.env.BODY_LIMIT || '256kb',
 
+  google: {
+    clientId: process.env.GOOGLE_CLIENT_ID || null,
+  },
+
+  smtp: {
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: Number(process.env.SMTP_PORT) || 587,
+    secure: process.env.SMTP_SECURE === 'true', // true for 465, false for 587 (STARTTLS)
+    user: process.env.SMTP_USER || null,
+    pass: process.env.SMTP_PASS || null,
+    from: process.env.SMTP_FROM || process.env.SMTP_USER || null,
+  },
+
+  // Public URL of the frontend, used to build links in emails (e.g. password reset).
+  appUrl: process.env.APP_URL || 'http://localhost:5173',
+
+  passwordReset: {
+    tokenTtlMinutes: Number(process.env.PASSWORD_RESET_TTL_MIN) || 60,
+  },
+
   adminSeed: {
     enabled: process.env.SEED_ADMIN === 'true',
     email: process.env.SEED_ADMIN_EMAIL || null,

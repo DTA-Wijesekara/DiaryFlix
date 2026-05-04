@@ -1,9 +1,10 @@
 import React, { useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  PlusCircle, ArrowRight, Calendar, Clock, Film, BookOpen, Flame, Sparkles
+  PlusCircle, ArrowRight, Calendar, Clock, Film, BookOpen, Flame, Sparkles, Bookmark
 } from 'lucide-react';
 import { getAllLogs, getStats } from '../services/storage';
+import { getAllWishlist, bucketWishlist } from '../services/wishlist';
 import { getRewatchSuggestions, getAnniversaryWatches } from '../services/rewatchEngine';
 import { getPosterUrl } from '../services/tmdb';
 import { useAuth } from '../context/AuthContext';
@@ -46,6 +47,7 @@ export default function Dashboard() {
   const anniversaries = useMemo(() => getAnniversaryWatches(), []);
   const hasAnniversary = anniversaries.length > 0;
 
+
   const firstName = (user?.displayName || 'there').split(' ')[0];
 
   return (
@@ -77,6 +79,9 @@ export default function Dashboard() {
           </button>
         </div>
       </header>
+
+      {/* Wishlist due / overdue */}
+      <WishlistDueBanner />
 
       {/* On this day — prominent when it triggers */}
       {hasAnniversary && (
@@ -208,6 +213,44 @@ export default function Dashboard() {
         </section>
       )}
     </div>
+  );
+}
+
+function WishlistDueBanner() {
+  const { today: dueToday, overdue } = bucketWishlist(getAllWishlist());
+  const total = dueToday.length + overdue.length;
+  if (total === 0) return null;
+
+  let label;
+  if (dueToday.length > 0 && overdue.length > 0) {
+    label = `On your wishlist for today + ${overdue.length} overdue`;
+  } else if (dueToday.length > 0) {
+    label = 'On your wishlist for today';
+  } else {
+    label = `${overdue.length} overdue on your wishlist`;
+  }
+
+  const items = [...dueToday, ...overdue].slice(0, 4);
+
+  return (
+    <section className="dash-wishlist-due">
+      <div className="dash-wishlist-due-label">
+        <Bookmark size={14} /> {label}
+      </div>
+      <ul className="dash-wishlist-due-list">
+        {items.map(item => (
+          <li key={item.id}>
+            <Link to={`/log?wishlistId=${encodeURIComponent(item.id)}`} className="dash-wishlist-due-item unstyled-link">
+              <span className="dash-wishlist-due-title">{item.title}</span>
+              {item.year && <span className="mono dash-wishlist-due-year">{item.year}</span>}
+            </Link>
+          </li>
+        ))}
+      </ul>
+      <Link to="/wishlist" className="dash-section-link">
+        Open wishlist <ArrowRight size={14} />
+      </Link>
+    </section>
   );
 }
 

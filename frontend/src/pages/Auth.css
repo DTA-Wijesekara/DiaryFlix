@@ -148,6 +148,74 @@
 
 .auth-card-header p { font-size: 0.95rem; color: var(--ink-50); }
 
+.auth-google {
+  margin-bottom: var(--space-4);
+  display: flex;
+  justify-content: center;
+}
+
+.auth-google > div { width: 100%; }
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  color: var(--ink-50);
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-family: var(--font-mono);
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--rule);
+}
+
+.auth-helper-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -8px;
+}
+
+.auth-forgot-link {
+  font-size: 0.82rem;
+  color: var(--ink-50);
+  text-decoration: none;
+}
+.auth-forgot-link:hover {
+  color: var(--blue);
+  text-decoration: underline;
+}
+
+.auth-success-block,
+.auth-error-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-5) 0;
+  text-align: center;
+  color: var(--ink-70);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.auth-success-block { color: var(--blue); }
+.auth-error-block   { color: var(--danger); }
+
+.auth-success-block p,
+.auth-error-block p {
+  color: var(--ink-70);
+  font-size: 0.92rem;
+  margin: 0;
+  max-width: 36ch;
+}
+
 .auth-form {
   display: flex;
   flex-direction: column;

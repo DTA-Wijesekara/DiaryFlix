@@ -2,12 +2,17 @@
 // /register  /login  /me  /change-password  /update-profile
 
 const express = require('express');
+const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const rateLimit = require('express-rate-limit');
+const { OAuth2Client } = require('google-auth-library');
 
 const config = require('../config');
 const { query } = require('../db');
+const { send, buildPasswordResetEmail, buildOAuthOnlyEmail } = require('../email');
+
+const googleClient = config.google.clientId ? new OAuth2Client(config.google.clientId) : null;
 const {
   authenticateJWT,
   asyncHandler,
@@ -151,6 +156,156 @@ router.post('/change-password', authenticateJWT, asyncHandler(async (req, res) =
   await query(
     'UPDATE users SET password_hash = @hash, salt = @salt WHERE id = @id',
     { id: req.user.id, hash, salt }
+  );
+
+  res.json({ success: true });
+}));
+
+// ---- POST /google ----
+// Frontend (Google Identity Services) returns an ID token (JWT).
+// We verify it server-side, then find-or-create-or-link the user and issue our own JWT.
+
+router.post('/google', authLimiter, asyncHandler(async (req, res) => {
+  if (!googleClient) {
+    throw new HttpError(503, 'Google sign-in is not configured on this server');
+  }
+
+  const credential = assertString(req.body.credential, 'credential', { min: 10, max: 4096 });
+
+  let payload;
+  try {
+    const ticket = await googleClient.verifyIdToken({
+      idToken: credential,
+      audience: config.google.clientId,
+    });
+    payload = ticket.getPayload();
+  } catch {
+    throw new HttpError(401, 'Could not verify Google credential');
+  }
+
+  if (!payload?.email_verified) {
+    throw new HttpError(401, 'Google account email is not verified');
+  }
+
+  const email     = String(payload.email).toLowerCase();
+  const googleId  = String(payload.sub);
+  const name      = (payload.name || payload.given_name || email.split('@')[0] || 'Cinephile').slice(0, 80);
+  const initial   = (name.trim()[0] || 'C').toUpperCase();
+
+  // 1) Existing user with this google_id → log them in
+  let row = (await query('SELECT * FROM users WHERE google_id = @googleId', { googleId })).rows[0];
+
+  // 2) No google_id match → look up by email and link
+  if (!row) {
+    row = (await query('SELECT * FROM users WHERE email = @email', { email })).rows[0];
+    if (row) {
+      await query('UPDATE users SET google_id = @googleId WHERE id = @id', { googleId, id: row.id });
+      row.google_id = googleId;
+    }
+  }
+
+  // 3) No match at all → create a brand new account
+  if (!row) {
+    const id = newId('user');
+    await query(`
+      INSERT INTO users (id, email, display_name, google_id, avatar, is_active, role, created_at, last_login)
+      VALUES (@id, @email, @displayName, @googleId, @avatar, TRUE, 'user', NOW(), NOW())
+    `, { id, email, displayName: name, googleId, avatar: initial });
+    row = (await query('SELECT * FROM users WHERE id = @id', { id })).rows[0];
+  } else {
+    if (!row.is_active) throw new HttpError(403, 'Account is deactivated');
+    await query('UPDATE users SET last_login = NOW() WHERE id = @id', { id: row.id });
+  }
+
+  res.json({ token: signToken(toPublicUser(row)), user: toPublicUser(row) });
+}));
+
+// ---- POST /forgot-password ----
+// Always returns the same generic success response to avoid leaking which
+// emails have accounts. The actual email is sent (or skipped) based on the
+// state of the matching user.
+
+router.post('/forgot-password', authLimiter, asyncHandler(async (req, res) => {
+  const email = assertEmail(req.body.email);
+  const genericResponse = { success: true, message: 'If an account exists for that email, a reset link is on its way.' };
+
+  const result = await query('SELECT * FROM users WHERE email = @email', { email });
+  const row = result.rows[0];
+  if (!row || !row.is_active) return res.json(genericResponse);
+
+  // OAuth-only user (no password set) → send a friendly "use Google" email.
+  if (!row.password_hash && row.google_id) {
+    const tpl = buildOAuthOnlyEmail({ displayName: row.display_name });
+    try { await send({ to: email, ...tpl }); } catch (e) { console.error('[email] send failed:', e.message); }
+    return res.json(genericResponse);
+  }
+
+  // Standard reset flow: generate token, store hash, email the link.
+  const rawToken  = crypto.randomBytes(32).toString('hex');
+  const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+  const ttlMin    = config.passwordReset.tokenTtlMinutes;
+  const expiresAt = new Date(Date.now() + ttlMin * 60 * 1000);
+
+  await query(`
+    INSERT INTO password_reset_tokens (token_hash, user_id, expires_at)
+    VALUES (@tokenHash, @userId, @expiresAt)
+  `, { tokenHash, userId: row.id, expiresAt });
+
+  const resetUrl = `${config.appUrl.replace(/\/$/, '')}/reset-password?token=${rawToken}`;
+  const tpl = buildPasswordResetEmail({
+    displayName: row.display_name,
+    resetUrl,
+    ttlMinutes: ttlMin,
+  });
+
+  try {
+    await send({ to: email, ...tpl });
+  } catch (e) {
+    console.error('[email] send failed:', e.message);
+    // Still return the generic success so we don't leak SMTP issues to clients.
+  }
+
+  res.json(genericResponse);
+}));
+
+// ---- POST /reset-password ----
+
+router.post('/reset-password', authLimiter, asyncHandler(async (req, res) => {
+  const token       = assertString(req.body.token, 'token', { min: 16, max: 256 });
+  const newPassword = assertPassword(req.body.newPassword);
+
+  const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+  const tokenRow = (await query(
+    'SELECT * FROM password_reset_tokens WHERE token_hash = @tokenHash',
+    { tokenHash }
+  )).rows[0];
+
+  if (!tokenRow) throw new HttpError(400, 'This reset link is invalid or has already been used. Request a new one.');
+  if (tokenRow.used_at) throw new HttpError(400, 'This reset link has already been used. Request a new one.');
+  if (new Date(tokenRow.expires_at) < new Date()) {
+    throw new HttpError(400, 'This reset link has expired. Request a new one.');
+  }
+
+  const userRow = (await query('SELECT * FROM users WHERE id = @id', { id: tokenRow.user_id })).rows[0];
+  if (!userRow || !userRow.is_active) throw new HttpError(400, 'Account is no longer available');
+
+  const salt = await bcrypt.genSalt(config.bcryptRounds);
+  const hash = await bcrypt.hash(newPassword, salt);
+
+  await query(
+    'UPDATE users SET password_hash = @hash, salt = @salt WHERE id = @id',
+    { hash, salt, id: userRow.id }
+  );
+
+  // Mark this token used and invalidate any other outstanding tokens for the user.
+  await query(
+    'UPDATE password_reset_tokens SET used_at = NOW() WHERE token_hash = @tokenHash',
+    { tokenHash }
+  );
+  await query(
+    'DELETE FROM password_reset_tokens WHERE user_id = @userId AND used_at IS NULL',
+    { userId: userRow.id }
   );
 
   res.json({ success: true });
