@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "diaryflix": {
+      "command": "node",
+      "args": ["c:\\Users\\dasun\\OneDrive\\Desktop\\mov\\server\\mcp\\index.js"]
+    }
+  }
+}
