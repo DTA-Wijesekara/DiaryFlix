@@ -31,3 +31,6 @@ pnpm-debug.log*
 *.local
 
 mynotes.txt
+
+# Claude Code local settings (per-developer)
+.claude/
