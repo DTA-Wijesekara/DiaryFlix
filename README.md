@@ -1,5 +1,7 @@
 # DiaryFLIX
 
+[![CI](https://github.com/DTA-Wijesekara/DiaryFlix/actions/workflows/ci.yml/badge.svg)](https://github.com/DTA-Wijesekara/DiaryFlix/actions/workflows/ci.yml)
+
 > A personal cinema diary — log every film you watch, capture your mood, and rediscover your screening history.
 
 **DiaryFLIX** is a full-stack web application that lets you keep a dated journal of every film or TV series you've ever watched. Record how you felt before and after, rate each entry, track rewatches, save favourite songs and quotes, and explore your habits through rich statistics — all behind a clean, editorial interface.
@@ -265,36 +267,48 @@ All routes are prefixed with `/api`.
 
 ---
 
+## Testing
+
+The backend has automated test coverage using **Jest** and **Supertest**.
+
+**Run the test suite:**
+```bash
+cd server
+npm test
+```
+
+**What's covered (20 test cases):**
+
+| Suite | Tests | What it verifies |
+|---|---|---|
+| `auth.test.js` | 5 | Registration validation, duplicate detection, password rules, login auth |
+| `logs.test.js` | 4 | Auth required, fetching logs, creating logs, 404 on missing |
+| `wishlist.test.js` | 3 | Listing, creating, and deleting wishlist items |
+| `admin.test.js` | 3 | Role-based access, last-admin safeguards |
+| `middleware.test.js` | 4 | JWT verification, expired tokens, admin gate |
+| `validation.test.js` | 1 | Email normalisation and format validation |
+
+All tests run against a mocked database (no real DB needed) and complete in ~3 seconds.
+
+---
+
+## Continuous Integration
+
+A **GitHub Actions** workflow ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs automatically on every push and pull request:
+
+| Job | What it does |
+|---|---|
+| **Backend — Tests** | Installs server deps and runs the full Jest suite |
+| **Frontend — Build** | Installs frontend deps, runs ESLint, and builds for production |
+
+Both jobs run in parallel on Node.js 20. A failing test or broken build will block the PR from merging.
+
+**Deployment** is handled separately by **Vercel**, which auto-deploys every push to `main` after CI passes.
+
+---
+
 ## License
 
 MIT © [Dasun Theekshana](https://github.com/your-username)
 
-
-
-
-
-
-Simple — you need two terminals, one for each:
-
-Terminal 1 — Backend:
-
-cd server
-npm start
-
-npm run dev
-npm install
-
-
-Terminal 2 — Frontend:
-
-cd frontend
-npm run dev
-Then open http://localhost:5173 in your browser (Vite's default port).
-
-The only thing that changed from before is you now cd frontend instead of running from the root. Everything else is identical.
-
-If you don't have the server dependencies installed yet:
-
-
-
-v2.1
+v2.2
