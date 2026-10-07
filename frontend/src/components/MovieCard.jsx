@@ -1,5 +1,6 @@
+import FilmArtwork from './FilmArtwork';
 import { Link } from 'react-router-dom';
-import { Star, RefreshCw } from 'lucide-react';
+import { Star, RefreshCw, Heart } from 'lucide-react';
 import { getPosterUrl } from '../services/tmdb';
 import './MovieCard.css';
 
@@ -28,10 +29,11 @@ export default function MovieCard({ log, index = 0 }) {
           />
         ) : (
           <div className="movie-card-poster movie-card-poster-empty">
-            <span>{log.title?.charAt(0) || '?'}</span>
+            <FilmArtwork title={log.title} variant={(log.title?.length || 0) % 3} />
           </div>
         )}
 
+        {log.isFavourite && <span className="favourite-badge"><Heart size={12} fill="currentColor" /> Favourite</span>}
         {validDate && (
           <div className="movie-card-datetag" aria-hidden="true">
             <span className="movie-card-datetag-day">{validDate.getDate()}</span>

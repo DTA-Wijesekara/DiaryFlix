@@ -1,3 +1,4 @@
+import FavouriteButton from '../components/FavouriteButton';
 import SeriesProgress from '../components/SeriesProgress';
 import { episodeLabel } from '../services/series';
 import useDialogFocus from '../hooks/useDialogFocus';
@@ -146,6 +147,7 @@ export default function MovieDetail() {
           <ArrowLeft size={18} /> Back
         </button>
         <div className="detail-topbar-actions">
+          <FavouriteButton movieId={log.movieId} />
           <button className="btn btn-secondary" onClick={handleRewatch}>
             <RefreshCw size={16} /> Log another watch
           </button>

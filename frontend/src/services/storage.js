@@ -47,6 +47,13 @@ export function getLogById(id) {
   return getAllLogs().find(log => log.id === id) || null;
 }
 
+export async function setTitleFavourite(movieId, isFavourite) {
+  const owner = getCurrentUserId();
+  const saved = await apiFetch(`/logs/titles/${encodeURIComponent(movieId)}/favourite`, { method: 'PATCH', body: { isFavourite } });
+  if (owner === getCurrentUserId()) saveLogs(getAllLogs().map(log => log.movieId === movieId ? { ...log, isFavourite: saved.isFavourite } : log));
+  return saved;
+}
+
 export async function addLog(entry) {
   const created = await apiFetch('/logs', { method: 'POST', body: entry });
   const logs = getAllLogs();
@@ -100,6 +107,7 @@ export function searchLogs(query) {
   const q = query.toLowerCase();
   return getAllLogs().filter(log =>
     log.title?.toLowerCase().includes(q) ||
+    log.notes?.toLowerCase().includes(q) ||
     log.actors?.some(a => a.toLowerCase().includes(q)) ||
     log.actresses?.some(a => a.toLowerCase().includes(q)) ||
     log.director?.toLowerCase().includes(q) ||
@@ -285,6 +293,7 @@ export function cacheTMDB(tmdbId, data) {
 export function exportToCSV() {
   const columns = [
     ['Title',        l => l.title],
+    ['Favourite', l => l.isFavourite ? 'Yes' : 'No'],
     ['Year',         l => l.year],
     ['Type',         l => l.type],
     ['Entry type', l => l.entryType || (l.type === 'tv_series' ? 'series' : 'film')],

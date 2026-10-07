@@ -1,7 +1,7 @@
 import DiaryNavigation from '../components/DiaryNavigation';
 import useLogRevision from '../hooks/useLogRevision';
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Search, LayoutGrid, List as ListIcon, Star, RefreshCw } from 'lucide-react';
 import { getAllLogs, getLogsByIndustry, searchLogs } from '../services/storage';
 import { getPosterUrl } from '../services/tmdb';
@@ -45,6 +45,8 @@ function deduplicateLogs(logs) {
 }
 
 export default function Library() {
+  const [searchParams] = useSearchParams();
+  const [favouritesOnly, setFavouritesOnly] = useState(searchParams.get('favourites') === 'true');
   const revision = useLogRevision();
   const [industry, setIndustry] = useState('all');
   const [query, setQuery] = useState('');
@@ -66,7 +68,7 @@ export default function Library() {
   const logs = useMemo(() => {
     void revision;
     const base = query.trim() ? searchLogs(query).filter(log => industry === 'all' || log.industry === industry) : getLogsByIndustry(industry);
-    const deduped = deduplicateLogs(base.filter(log => contentType === 'all' || log.type === contentType));
+    const deduped = deduplicateLogs(base.filter(log => (!favouritesOnly || log.isFavourite) && (contentType === 'all' || log.type === contentType)));
     const cmp = {
       'date-desc':   (a, b) => new Date(b.dateWatched || b.createdAt) - new Date(a.dateWatched || a.createdAt),
       'date-asc':    (a, b) => new Date(a.dateWatched || a.createdAt) - new Date(b.dateWatched || b.createdAt),
@@ -76,18 +78,18 @@ export default function Library() {
     }[sortBy];
     if (cmp) deduped.sort(cmp);
     return deduped;
-  }, [industry, query, sortBy, revision, contentType]);
+  }, [industry, query, sortBy, revision, contentType, favouritesOnly]);
 
   return (
     <div className="library fade-in" id="library-page">
       <header className="page-header">
 
         <h1>My diary</h1>
-        <p>{logs.length} {logs.length === 1 ? 'film' : 'films'}{query ? ` matching "${query}"` : ''}.</p>
+        <p>{logs.length} {logs.length === 1 ? 'title' : 'titles'}{query ? ` matching "${query}"` : ''}.</p>
       </header>
 
       <DiaryNavigation />
-      <label>Show <select className="input" aria-label="Content type" value={contentType} onChange={e => setContentType(e.target.value)}><option value="all">All</option><option value="movie">Films</option><option value="tv_series">TV series</option></select></label>
+      <div className="journal-filters"><label>Show <select className="input" aria-label="Content type" value={contentType} onChange={e => setContentType(e.target.value)}><option value="all">All</option><option value="movie">Films</option><option value="tv_series">TV series</option></select></label><label><input type="checkbox" checked={favouritesOnly} onChange={e => setFavouritesOnly(e.target.checked)} /> Favourites only</label></div>
       <div className="library-controls">
         <div className="library-search">
           <Search size={15} className="library-search-icon" aria-hidden="true" />

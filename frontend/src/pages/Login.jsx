@@ -57,11 +57,13 @@ export default function Login() {
               <p>Sign in to open your diary.</p>
             </div>
 
+            {import.meta.env.VITE_GOOGLE_CLIENT_ID && <>
             <div className="auth-google">
               <GoogleSignInButton onCredential={handleGoogle} onError={setAuthError} />
             </div>
 
-            <div className="auth-divider"><span>or</span></div>
+            <div className="auth-divider"><span>or use email</span></div>
+            </>}
 
             {authError && <div className="auth-inline-error" role="alert">
               <p>{authError.message}</p>

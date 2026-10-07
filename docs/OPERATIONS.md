@@ -41,6 +41,8 @@ Keep the database backup and previous deployment available. Schema additions are
 ## Local sign-in troubleshooting
 The Vite dev server uses port 5173 with strictPort, so it cannot silently switch to an unauthorized Google origin. In the Google Cloud web OAuth client, register the exact frontend origin (http://localhost:5173). Backend GOOGLE_CLIENT_ID and frontend VITE_GOOGLE_CLIENT_ID must match. Restart Vite after environment changes.
 
+For a deployed build, set `VITE_GOOGLE_CLIENT_ID` in the frontend hosting project's build environment and rebuild; changing only the backend variable or setting a frontend container runtime variable cannot update an existing Vite bundle. Docker builds accept `--build-arg VITE_GOOGLE_CLIENT_ID=...`. Configure the live frontend origin in Google Cloud as well. Without a frontend client ID, only email/password sign-in is shown. A blocked or failed Google script now shows a visible fallback message.
+
 If Neon connections are refused over IPv6 on the local network, set DB_IP_FAMILY=4 in server/.env. This changes database TCP address selection only; the hostname and TLS verification remain unchanged. Connections time out after 15 seconds, and queries are not automatically replayed.
 
 An EMAIL_UNVERIFIED response requires the existing email recovery flow; it is not repaired by disabling verification or creating a replacement account.

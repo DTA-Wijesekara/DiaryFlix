@@ -216,7 +216,7 @@ async function findAuthUser(id) {
 
 async function initDB() {
   const { rows } = await query('SELECT MAX(version) AS version FROM schema_migrations');
-  if (rows[0]?.version !== 6) throw new Error('Run npm run db:migrate before starting the application');
+  if (rows[0]?.version !== 7) throw new Error('Run npm run db:migrate before starting the application');
 }
 
 module.exports = { initDB, getPool, closePool, query, transaction, ensureSchema, maybeSeedAdmin, findAuthUser };

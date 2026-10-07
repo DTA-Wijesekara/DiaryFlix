@@ -14,29 +14,34 @@
 
 :root {
   /* Paper & ink */
-  --paper: #fbfcfe;
-  --paper-warm: #f5f7fb;
-  --paper-elevated: #ffffff;
-  --ink: #0b1220;
-  --ink-70: #394357;
-  --ink-50: #64708a;
-  --ink-30: #a4adc0;
-  --ink-15: #d7dce7;
-  --ink-08: #e8ecf3;
-  --rule: #e4e8f0;
-  --rule-strong: #c9d1df;
+  --paper: #F7F3EB;
+  --paper-warm: #F0EBE1;
+  --paper-elevated: #FFFDFA;
+  --ink: #202321;
+  --ink-70: #414740;
+  --ink-50: #686760;
+  --ink-30: #97948C;
+  --ink-15: #D4CEC2;
+  --ink-08: #EDE6DB;
+  --rule: #E4DED3;
+  --rule-strong: #C7BEB0;
 
-  /* Journal blue — deliberately muted, not electric */
-  --blue: #1d4ed8;
-  --blue-700: #1e40af;
-  --blue-600: #2a5ce0;
-  --blue-500: #3b6fe8;
-  --blue-100: #dbe5fa;
-  --blue-50: #eef2fd;
-  --blue-tint: rgba(29, 78, 216, 0.08);
+  --surface: var(--paper-elevated);
+  --accent: #782F40;
+  --accent-hover: #602333;
+  --gold: #B48A43;
+
+  /* Compatibility accent aliases; formerly journal blue — deliberately muted, not electric */
+  --blue: var(--accent);
+  --blue-700: #602333;
+  --blue-600: #84384C;
+  --blue-500: #925168;
+  --blue-100: #EEDDE0;
+  --blue-50: #F7ECEE;
+  --blue-tint: rgba(120, 47, 64, 0.08);
 
   /* Semantic */
-  --success: #0a7f5f;
+  --success: #526758;
   --warning: #b45309;
   --danger: #b91c1c;
 
