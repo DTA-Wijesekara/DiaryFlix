@@ -445,3 +445,6 @@
   .detail-poster { width: 120px; }
   .detail-meta { gap: 8px; }
 }
+
+.detail-hero.detail-hero-no-poster { grid-template-columns:minmax(0,1fr); }
+.detail-synopsis summary { cursor:pointer; padding:12px 0; color:var(--ink-70); }

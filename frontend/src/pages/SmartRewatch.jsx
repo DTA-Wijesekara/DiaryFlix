@@ -1,22 +1,25 @@
-import React, { useState, useMemo } from 'react';
+import useLogRevision from '../hooks/useLogRevision';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { RefreshCw, Sparkles, Star, Clock, ChevronRight, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { RefreshCw, Sparkles, Star, Clock, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { getRewatchSuggestions, getMoodInsights } from '../services/rewatchEngine';
 import { getPosterUrl } from '../services/tmdb';
 import MoodPicker from '../components/MoodPicker';
 import './SmartRewatch.css';
 
 export default function SmartRewatch() {
+  const revision = useLogRevision();
   const navigate = useNavigate();
   const [currentMood, setCurrentMood] = useState('');
   const [dismissed, setDismissed] = useState(new Set());
 
   const suggestions = useMemo(() => {
+    void revision;
     return getRewatchSuggestions(currentMood || null, 20)
       .filter(s => !dismissed.has(s.id));
-  }, [currentMood, dismissed]);
+  }, [currentMood, dismissed, revision]);
 
-  const moodInsights = useMemo(() => getMoodInsights(), []);
+  const moodInsights = useMemo(() => { void revision; return getMoodInsights(); }, [revision]);
 
   const handleDismiss = (id) => {
     setDismissed(prev => new Set([...prev, id]));
@@ -30,8 +33,8 @@ export default function SmartRewatch() {
   return (
     <div className="smart-rewatch fade-in" id="smart-rewatch-page">
       <div className="page-header">
-        <h1>Smart Rewatch ✨</h1>
-        <p>Your AI-powered guide to what to watch again tonight.</p>
+        <h1>Watch again</h1>
+        <p>Revisit films you enjoyed, with suggestions based on your ratings and mood.</p>
       </div>
 
       {/* Mood Selector */}

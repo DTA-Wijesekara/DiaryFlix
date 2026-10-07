@@ -1,4 +1,14 @@
 node_modules
 .env
+.env.*
+.git
+.vercel
+coverage
+test-results
+.audit-report.json
+*.dump
+*.backup
+*.pem
+*.key
 *.log
 npm-debug.log*

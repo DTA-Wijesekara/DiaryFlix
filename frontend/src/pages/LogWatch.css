@@ -165,3 +165,8 @@
   .log-selected-preview { grid-template-columns: 70px 1fr; }
   .log-selected-poster { width: 70px; }
 }
+
+.log-extras .log-section { border:0; box-shadow:none; padding:20px 0; }
+.log-submit { position:sticky; bottom:16px; background:var(--paper-elevated); padding:16px; border:1px solid var(--rule); border-radius:12px; box-shadow:var(--shadow-2); z-index:20; }
+.log-submit-btn { width:100%; min-width:0; }
+@media(max-width:1024px) { .log-submit { bottom:90px; } }

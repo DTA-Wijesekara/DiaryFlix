@@ -13,6 +13,7 @@ const {
   HttpError,
   assertString,
   clampInt,
+  assertDate,
 } = require('../middleware');
 
 const router = express.Router();
@@ -48,7 +49,7 @@ function sanitise(body) {
     backdropPath: body.backdropPath ? String(body.backdropPath).slice(0, 255): null,
     overview:     body.overview != null ? String(body.overview)              : null,
     industry:     body.industry     ? String(body.industry).slice(0, 64)     : null,
-    plannedDate:  body.plannedDate  ? String(body.plannedDate).slice(0, 32)  : null,
+    plannedDate:  assertDate(body.plannedDate, 'plannedDate'),
     note:         body.note != null ? String(body.note)                      : null,
     source:       body.source       ? String(body.source).slice(0, 255)      : null,
   };
@@ -62,8 +63,9 @@ router.get('/', asyncHandler(async (req, res) => {
     ORDER BY
       CASE WHEN planned_date IS NULL THEN 1 ELSE 0 END,
       planned_date ASC,
-      created_at  DESC
-  `, { userId: req.user.id });
+      created_at  DESC, id DESC
+    LIMIT @limit OFFSET @offset
+  `, { userId: req.user.id, limit: clampInt(req.query.limit ?? 200, { min: 1, max: 500 }), offset: clampInt(req.query.offset ?? 0, { min: 0 }) });
   res.json(result.rows);
 }));
 

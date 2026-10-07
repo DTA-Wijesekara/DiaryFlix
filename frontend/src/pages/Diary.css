@@ -396,3 +396,8 @@
   .diary-entry-poster { width: 64px; }
   .diary-entry-title { font-size: 1.02rem; }
 }
+
+.diary-monthbar { display:flex; gap:12px; }
+.diary-month-selectors { display:flex; gap:8px; flex:1; min-width:0; }
+.diary-month-selectors .select { min-width:0; }
+.diary-nav-btn { min-width:44px; min-height:44px; }

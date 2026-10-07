@@ -21,7 +21,7 @@ const MOOD_WEIGHTS = {
  * @returns {Array} Scored and sorted movie suggestions
  */
 export function getRewatchSuggestions(currentMood = null, limit = 10) {
-  const logs = getAllLogs();
+  const logs = getAllLogs().filter(log => !log.episodeId);
   if (logs.length === 0) return [];
 
   const now = new Date();
@@ -165,7 +165,7 @@ function isMoodImprovement(before, after) {
  * Get mood-based insights
  */
 export function getMoodInsights() {
-  const logs = getAllLogs();
+  const logs = getAllLogs().filter(log => !log.episodeId);
   const insights = {};
 
   // For each mood, find the best movies
@@ -200,7 +200,7 @@ export function getMoodInsights() {
  * Get anniversary watches — movies watched on this day in previous years
  */
 export function getAnniversaryWatches() {
-  const logs = getAllLogs();
+  const logs = getAllLogs().filter(log => !log.episodeId);
   const now = new Date();
   const today = { month: now.getMonth(), day: now.getDate() };
 

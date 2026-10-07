@@ -14,8 +14,12 @@ const authRoutes     = require('./routes/auth');
 const logRoutes      = require('./routes/logs');
 const adminRoutes    = require('./routes/admin');
 const wishlistRoutes = require('./routes/wishlist');
+const recommendationRoutes = require('./routes/recommendations');
+
+const { PostgresRateStore } = require('./lib/postgresRateStore');
 
 const app = express();
+if (process.env.TRUST_PROXY) app.set('trust proxy', process.env.TRUST_PROXY.split(',').map(v => v.trim()));
 
 // Security headers
 app.use(helmet({
@@ -70,6 +74,7 @@ app.use('/api', (req, res, next) => {
 
 // Rate limit
 const apiLimiter = rateLimit({
+  ...(config.isProd ? { store: new PostgresRateStore('api') } : {}),
   windowMs: config.rateLimits.api.windowMs,
   max:      config.rateLimits.api.max,
   standardHeaders: true,
@@ -80,8 +85,10 @@ app.use('/api', apiLimiter);
 // Routes
 app.use('/api/auth',     authRoutes);
 app.use('/api/logs',     logRoutes);
+app.use('/api/series', require('./routes/series'));
 app.use('/api/admin',    adminRoutes);
 app.use('/api/wishlist', wishlistRoutes);
+app.use('/api/recommendations', recommendationRoutes);
 
 // 404 + error handler
 app.use(notFound);

@@ -1,4 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import DiaryNavigation from '../components/DiaryNavigation';
+import useLogRevision from '../hooks/useLogRevision';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, LayoutGrid, List as ListIcon, Star, RefreshCw } from 'lucide-react';
 import { getAllLogs, getLogsByIndustry, searchLogs } from '../services/storage';
@@ -23,9 +25,9 @@ function formatDate(iso) {
 function deduplicateLogs(logs) {
   const groups = new Map();
   for (const log of logs) {
-    const key = log.tmdbId
-      ? `id:${log.tmdbId}`
-      : `title:${(log.title || '').toLowerCase().trim()}`;
+    const key = log.movieId || (log.tmdbId
+      ? `id:${log.type}:${log.tmdbId}`
+      : `title:${log.type}:${log.year}:${(log.title || '').toLowerCase().trim()}`);
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(log);
   }
@@ -37,30 +39,34 @@ function deduplicateLogs(logs) {
     return {
       ...primary,
       // Recalculate: each diary entry = one watch, so rewatches = entries - 1
-      rewatchCount: entries.length - 1,
+      rewatchCount: primary.type === 'tv_series' ? 0 : entries.length - 1,
     };
   });
 }
 
 export default function Library() {
+  const revision = useLogRevision();
   const [industry, setIndustry] = useState('all');
   const [query, setQuery] = useState('');
+  const [contentType, setContentType] = useState('all');
   const [viewMode, setViewMode] = useState('grid');
   const [sortBy, setSortBy] = useState('date-desc');
 
   // Industry counts based on unique films (not total diary entries)
   const industryCounts = useMemo(() => {
+    void revision;
     const counts = {};
     deduplicateLogs(getAllLogs()).forEach(l => {
       const ind = l.industry || 'other';
       counts[ind] = (counts[ind] || 0) + 1;
     });
     return counts;
-  }, []);
+  }, [revision]);
 
   const logs = useMemo(() => {
-    const base = query.trim() ? searchLogs(query) : getLogsByIndustry(industry);
-    const deduped = deduplicateLogs(base);
+    void revision;
+    const base = query.trim() ? searchLogs(query).filter(log => industry === 'all' || log.industry === industry) : getLogsByIndustry(industry);
+    const deduped = deduplicateLogs(base.filter(log => contentType === 'all' || log.type === contentType));
     const cmp = {
       'date-desc':   (a, b) => new Date(b.dateWatched || b.createdAt) - new Date(a.dateWatched || a.createdAt),
       'date-asc':    (a, b) => new Date(a.dateWatched || a.createdAt) - new Date(b.dateWatched || b.createdAt),
@@ -70,16 +76,18 @@ export default function Library() {
     }[sortBy];
     if (cmp) deduped.sort(cmp);
     return deduped;
-  }, [industry, query, sortBy]);
+  }, [industry, query, sortBy, revision, contentType]);
 
   return (
     <div className="library fade-in" id="library-page">
       <header className="page-header">
-        <span className="eyebrow">The Library</span>
-        <h1>Every film you've logged</h1>
+
+        <h1>My diary</h1>
         <p>{logs.length} {logs.length === 1 ? 'film' : 'films'}{query ? ` matching "${query}"` : ''}.</p>
       </header>
 
+      <DiaryNavigation />
+      <label>Show <select className="input" aria-label="Content type" value={contentType} onChange={e => setContentType(e.target.value)}><option value="all">All</option><option value="movie">Films</option><option value="tv_series">TV series</option></select></label>
       <div className="library-controls">
         <div className="library-search">
           <Search size={15} className="library-search-icon" aria-hidden="true" />
@@ -128,14 +136,14 @@ export default function Library() {
         </div>
       </div>
 
-      {!query && (
-        <div className="library-industry-tabs">
+      {(
+        <details className="library-industry-tabs quiet-disclosure"><summary>Filter by industry</summary>
           <IndustryTabs
             value={industry}
             onChange={setIndustry}
             counts={industryCounts}
           />
-        </div>
+        </details>
       )}
 
       {logs.length === 0 ? (

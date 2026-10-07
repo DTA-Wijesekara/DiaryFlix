@@ -38,6 +38,63 @@
   display: block;
 }
 
+/* Highlights — derived insight cards */
+.stats-insights {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-md);
+  margin-bottom: var(--space-2xl);
+}
+
+.stats-insight {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
+  padding: var(--space-lg);
+}
+
+.stats-insight-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-md);
+  background: var(--bg-input);
+  color: var(--accent-primary);
+  flex-shrink: 0;
+}
+
+.stats-insight-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.stats-insight-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+}
+
+.stats-insight-value {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--text-primary);
+  line-height: 1.25;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stats-insight-sub {
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+  margin-top: 1px;
+}
+
 /* Chart Grid */
 .stats-grid {
   display: grid;
@@ -205,7 +262,12 @@
   .stats-top-row {
     grid-template-columns: 1fr;
   }
+  .stats-insights {
+    grid-template-columns: 1fr;
+  }
   .stats-grid {
     grid-template-columns: 1fr;
   }
 }
+
+.stats-activity { margin-bottom:24px; }

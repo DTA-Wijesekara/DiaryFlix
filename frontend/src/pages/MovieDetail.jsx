@@ -1,4 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import SeriesProgress from '../components/SeriesProgress';
+import { episodeLabel } from '../services/series';
+import useDialogFocus from '../hooks/useDialogFocus';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Calendar, Film, Tv, ChevronLeft, ChevronRight,
@@ -27,17 +30,19 @@ export default function MovieDetail() {
   const [editOpen, setEditOpen]     = useState(false);
   const [editForm, setEditForm]     = useState(null);
   const [saving, setSaving]         = useState(false);
+  const dialogRef = useDialogFocus(editOpen, () => { if (!saving) setEditOpen(false); });
 
   useEffect(() => {
     const data = getLogById(id);
     if (!data) { navigate('/library'); return; }
+// eslint-disable-next-line react-hooks/set-state-in-effect -- Initialize the editable viewing selection when the route changes.
     setLog(data);
 
     // Gather all diary entries for the same film (same movieId).
     // Sort oldest → newest so Watch 1 is the first time they saw it.
     const siblings = data.movieId
       ? getAllLogs()
-          .filter(l => l.movieId === data.movieId)
+          .filter(l => l.movieId === data.movieId && (l.episodeId || null) === (data.episodeId || null))
           .sort((a, b) => new Date(a.dateWatched || a.createdAt) - new Date(b.dateWatched || b.createdAt))
       : [data];
 
@@ -104,7 +109,7 @@ export default function MovieDetail() {
   };
 
   const handleRewatch = () => {
-    navigate('/log', { state: { rewatchOf: log } });
+    navigate('/log', { state: { rewatchOf: currentWatch } });
   };
 
   const handleDelete = async () => {
@@ -142,19 +147,19 @@ export default function MovieDetail() {
         </button>
         <div className="detail-topbar-actions">
           <button className="btn btn-secondary" onClick={handleRewatch}>
-            <RefreshCw size={16} /> Watch Again
+            <RefreshCw size={16} /> Log another watch
           </button>
-          <button className="btn btn-ghost btn-icon" onClick={openEdit} title="Edit entry">
+          <button className="btn btn-ghost btn-icon" onClick={openEdit} title="Edit this watch" aria-label="Edit this watch">
             <Edit3 size={18} />
           </button>
-          <button className="btn btn-ghost btn-icon" onClick={handleDelete} title="Delete entry">
+          <button className="btn btn-ghost btn-icon" onClick={handleDelete} title="Delete this watch" aria-label="Delete this watch">
             <Trash2 size={18} />
           </button>
         </div>
       </div>
 
       {/* Hero — movie metadata stays fixed while navigating watches */}
-      <div className="detail-hero">
+      <div className={`detail-hero ${posterSrc ? '' : 'detail-hero-no-poster'}`}>
         {posterSrc && (
           <img src={posterSrc} alt={log.title} className="detail-poster" />
         )}
@@ -163,6 +168,7 @@ export default function MovieDetail() {
             {log.industry || 'Other'}
           </div>
           <h1 className="detail-title">{log.title}</h1>
+          {log.type === 'tv_series' && <p>{episodeLabel(log)}</p>}
           <div className="detail-meta">
             {log.year && <span>{log.year}</span>}
             {log.type && (
@@ -170,7 +176,7 @@ export default function MovieDetail() {
                 {log.type === 'tv_series' ? <><Tv size={14} /> TV Series</> : <><Film size={14} /> Movie</>}
               </span>
             )}
-            {log.runtime > 0 && <span>{log.runtime} min</span>}
+            {currentWatch.watchedMinutes > 0 && <span>{currentWatch.watchedMinutes} min watched</span>}
             {log.director && <span>Dir: {log.director}</span>}
           </div>
 
@@ -180,7 +186,7 @@ export default function MovieDetail() {
           </div>
 
           {log.overview && (
-            <p className="detail-overview">{log.overview}</p>
+            <details className="detail-synopsis"><summary>About this title</summary><p className="detail-overview">{log.overview}</p></details>
           )}
 
           {log.genres?.length > 0 && (
@@ -190,6 +196,8 @@ export default function MovieDetail() {
           )}
         </div>
       </div>
+
+      {log.type === 'tv_series' && <SeriesProgress key={log.movieId} log={log} />}
 
       {/* Watch navigator — only visible when the film has been watched more than once */}
       {allWatches.length > 1 && (
@@ -224,6 +232,13 @@ export default function MovieDetail() {
           </button>
         </div>
       )}
+
+        {currentWatch.notes && (
+          <div className="detail-section glass-card-static">
+            <h3>Your notes</h3>
+            <p className="detail-notes">{currentWatch.notes}</p>
+          </div>
+        )}
 
       {/* Details Grid — all watch-specific fields come from currentWatch */}
       <div className="detail-grid">
@@ -271,8 +286,8 @@ export default function MovieDetail() {
           </div>
         </div>
 
-        <div className="detail-section glass-card-static">
-          <h3>🎭 Mood Journey</h3>
+        {(currentWatch.moodBefore || currentWatch.moodAfter) && <div className="detail-section glass-card-static">
+          <h3>How you felt</h3>
           <div className="detail-mood-journey">
             {currentWatch.moodBefore && (
               <div className="detail-mood-card">
@@ -295,17 +310,17 @@ export default function MovieDetail() {
               <p style={{ color: 'var(--text-tertiary)', fontSize: '0.85rem' }}>No mood recorded</p>
             )}
           </div>
-        </div>
+        </div>}
 
         {(log.actors?.length > 0 || log.actresses?.length > 0) && (
-          <div className="detail-section glass-card-static">
-            <h3><Users size={16} /> Cast</h3>
+          <details className="detail-section glass-card-static quiet-disclosure">
+            <summary><Users size={16} /> Cast</summary>
             <div className="detail-cast">
               {[...(log.actors || []), ...(log.actresses || [])].filter(Boolean).map((name, i) => (
                 <span key={i} className="chip">{name}</span>
               ))}
             </div>
-          </div>
+          </details>
         )}
 
         {currentWatch.favouriteSongs?.length > 0 && (
@@ -346,27 +361,22 @@ export default function MovieDetail() {
           </div>
         )}
 
-        {currentWatch.notes && (
-          <div className="detail-section glass-card-static">
-            <h3>📝 Notes</h3>
-            <p className="detail-notes">{currentWatch.notes}</p>
-          </div>
-        )}
+
       </div>
 
       {/* Edit Modal — edits only the currently displayed watch entry */}
       {editOpen && editForm && (
         <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setEditOpen(false)}>
-          <div className="modal detail-edit-modal">
+          <div className="modal detail-edit-modal" ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="edit-watch-heading">
             <div className="detail-edit-header">
               <div>
-                <h2>Edit Entry</h2>
+                <h2 id="edit-watch-heading">Edit this watch</h2>
                 <p className="detail-edit-title-hint">
                   {log.title}
                   {allWatches.length > 1 && ` · Watch ${watchIdx + 1} of ${allWatches.length}`}
                 </p>
               </div>
-              <button className="btn btn-ghost btn-icon" onClick={() => setEditOpen(false)}>
+              <button aria-label="Close editor" className="btn btn-ghost btn-icon" onClick={() => setEditOpen(false)}>
                 <X size={18} />
               </button>
             </div>

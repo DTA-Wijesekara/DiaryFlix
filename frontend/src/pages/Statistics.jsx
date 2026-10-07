@@ -1,5 +1,7 @@
-import React, { useMemo, useEffect, useRef } from 'react';
-import { BarChart3, TrendingUp, Star, Film, Users, Flame, Clock } from 'lucide-react';
+import CalendarHeatmap from '../components/CalendarHeatmap';
+import useLogRevision from '../hooks/useLogRevision';
+import { useMemo } from 'react';
+import { BarChart3, TrendingUp, Star, Film, Users, Flame, Clock, Calendar, Repeat, Award } from 'lucide-react';
 import { getStats, getAllLogs } from '../services/storage';
 import {
   Chart as ChartJS,
@@ -7,20 +9,20 @@ import {
   LinearScale,
   BarElement,
   ArcElement,
-  PointElement,
-  LineElement,
   Title,
   Tooltip,
   Legend,
-  Filler,
 } from 'chart.js';
-import { Bar, Doughnut, Line } from 'react-chartjs-2';
+import { Bar, Doughnut } from 'react-chartjs-2';
 import './Statistics.css';
 
 ChartJS.register(
-  CategoryScale, LinearScale, BarElement, ArcElement,
-  PointElement, LineElement, Title, Tooltip, Legend, Filler
+  CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend
 );
+
+// Light editorial palette to match the rest of the app.
+const TICK_COLOR = '#64748b';
+const GRID_COLOR = 'rgba(15, 23, 42, 0.06)';
 
 const CHART_DEFAULTS = {
   responsive: true,
@@ -28,10 +30,10 @@ const CHART_DEFAULTS = {
   plugins: {
     legend: { display: false },
     tooltip: {
-      backgroundColor: 'rgba(12, 12, 20, 0.9)',
+      backgroundColor: 'rgba(11, 18, 32, 0.92)',
       borderColor: 'rgba(255,255,255,0.1)',
       borderWidth: 1,
-      titleFont: { family: 'Outfit', size: 13, weight: '600' },
+      titleFont: { family: 'Inter', size: 13, weight: '600' },
       bodyFont: { family: 'Inter', size: 12 },
       padding: 12,
       cornerRadius: 8,
@@ -39,33 +41,41 @@ const CHART_DEFAULTS = {
   },
   scales: {
     x: {
-      grid: { color: 'rgba(255,255,255,0.04)' },
-      ticks: { color: '#8a8a9a', font: { family: 'Inter', size: 11 } },
+      grid: { color: GRID_COLOR },
+      ticks: { color: TICK_COLOR, font: { family: 'Inter', size: 11 } },
       border: { display: false },
     },
     y: {
-      grid: { color: 'rgba(255,255,255,0.04)' },
-      ticks: { color: '#8a8a9a', font: { family: 'Inter', size: 11 } },
+      grid: { color: GRID_COLOR },
+      ticks: { color: TICK_COLOR, font: { family: 'Inter', size: 11 } },
       border: { display: false },
     },
   },
 };
 
+const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+
+function formatMonth(key) {
+  const [y, m] = key.split('-');
+  return new Date(y, m - 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+}
+
 export default function Statistics() {
-  const stats = useMemo(() => getStats(), []);
-  const logs = useMemo(() => getAllLogs(), []);
+  const revision = useLogRevision();
+  const stats = useMemo(() => { void revision; return getStats(); }, [revision]);
+  const logs = useMemo(() => { void revision; return getAllLogs(); }, [revision]);
 
   if (logs.length === 0) {
     return (
       <div className="statistics fade-in" id="statistics-page">
         <div className="page-header">
-          <h1>Statistics 📊</h1>
+          <h1>Statistics</h1>
           <p>Your cinema journey, visualized.</p>
         </div>
         <div className="empty-state">
           <BarChart3 size={48} />
           <h3>No data yet</h3>
-          <p>Start logging movies to see beautiful statistics about your cinema journey!</p>
+          <p>Start logging films or episodes to see beautiful statistics about your cinema journey!</p>
         </div>
       </div>
     );
@@ -77,31 +87,43 @@ export default function Statistics() {
     return new Date(y, m - 1).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
   });
   const monthValues = Object.values(stats.byMonth);
-  const hoursMonthValues = Object.values(stats.hoursByMonth || {});
 
   const monthlyData = {
     labels: monthLabels,
     datasets: [{
       data: monthValues,
-      backgroundColor: 'rgba(37, 99, 235, 0.3)',
-      borderColor: '#f59e0b',
-      borderWidth: 2,
+      backgroundColor: 'rgba(37, 99, 235, 0.85)',
       borderRadius: 6,
-      hoverBackgroundColor: 'rgba(37, 99, 235, 0.5)',
+      hoverBackgroundColor: '#1d4ed8',
+      maxBarThickness: 48,
     }],
   };
 
-  const hoursMonthlyData = {
-    labels: monthLabels,
-    datasets: [{
-      data: hoursMonthValues,
-      backgroundColor: 'rgba(16, 185, 129, 0.3)',
-      borderColor: '#10b981',
-      borderWidth: 2,
-      borderRadius: 6,
-      hoverBackgroundColor: 'rgba(16, 185, 129, 0.5)',
-    }],
-  };
+  // ── Highlights — plain-language takeaways derived from the data ──
+  const insights = [];
+  const industryEntries = Object.entries(stats.byIndustry).sort((a, b) => b[1] - a[1]);
+  if (industryEntries.length) {
+    const [name, count] = industryEntries[0];
+    insights.push({ icon: Film, label: 'Favorite industry', value: cap(name), sub: `${count} ${count === 1 ? 'entry' : 'entries'}` });
+  }
+  if (stats.topRated[0]) {
+    insights.push({ icon: Star, label: 'Top rated', value: stats.topRated[0].title, sub: `${stats.topRated[0].rating}/10` });
+  }
+  if (stats.maxStreak > 0) {
+    insights.push({ icon: Flame, label: 'Longest streak', value: `${stats.maxStreak} ${stats.maxStreak === 1 ? 'day' : 'days'}`, sub: 'in a row' });
+  }
+  const monthEntries = Object.entries(stats.byMonth).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+  if (monthEntries.length) {
+    const [key, count] = monthEntries[0];
+    insights.push({ icon: Calendar, label: 'Busiest month', value: formatMonth(key), sub: `${count} ${count === 1 ? 'entry' : 'entries'}` });
+  }
+  if (stats.totalRewatches > 0) {
+    insights.push({ icon: Repeat, label: 'Rewatches', value: stats.totalRewatches, sub: 'films revisited' });
+  }
+  if (stats.topDirectors[0]) {
+    const [name, count] = stats.topDirectors[0];
+    insights.push({ icon: Award, label: 'Most-watched director', value: name, sub: `${count} ${count === 1 ? 'entry' : 'entries'}` });
+  }
 
   // Industry doughnut
   const industryColors = {
@@ -120,7 +142,7 @@ export default function Statistics() {
     datasets: [{
       data: Object.values(stats.byIndustry),
       backgroundColor: Object.keys(stats.byIndustry).map(k => industryColors[k] || '#6b7280'),
-      borderColor: '#0c0c14',
+      borderColor: '#ffffff',
       borderWidth: 3,
       hoverOffset: 8,
     }],
@@ -133,20 +155,13 @@ export default function Statistics() {
       data: Object.values(stats.ratingDist),
       backgroundColor: Object.keys(stats.ratingDist).map(r => {
         const v = parseInt(r);
-        if (v >= 9) return 'rgba(16, 185, 129, 0.5)';
-        if (v >= 7) return 'rgba(37, 99, 235, 0.5)';
-        if (v >= 5) return 'rgba(14, 165, 233, 0.4)';
-        return 'rgba(107, 114, 128, 0.4)';
-      }),
-      borderColor: Object.keys(stats.ratingDist).map(r => {
-        const v = parseInt(r);
         if (v >= 9) return '#10b981';
-        if (v >= 7) return '#f59e0b';
-        if (v >= 5) return '#8b5cf6';
-        return '#6b7280';
+        if (v >= 7) return '#2563eb';
+        if (v >= 5) return '#0ea5e9';
+        return '#94a3b8';
       }),
-      borderWidth: 1,
       borderRadius: 4,
+      maxBarThickness: 40,
     }],
   };
 
@@ -165,9 +180,10 @@ export default function Statistics() {
   return (
     <div className="statistics fade-in" id="statistics-page">
       <div className="page-header">
-        <h1>Statistics 📊</h1>
-        <p>Your cinema journey across {stats.totalWatched} movies, visualized.</p>
+        <h1>Statistics</h1>
+        <p>Your cinema journey across {stats.totalFilms} film watches and {stats.totalEpisodes} episode watches, visualized.</p>
       </div>
+      <details className="quiet-disclosure stats-activity"><summary>Watch activity over the last year</summary><CalendarHeatmap logs={logs} /></details>
 
       {/* Top Stats Row */}
       <div className="stats-top-row">
@@ -182,6 +198,7 @@ export default function Statistics() {
           <Clock size={20} />
           <div>
             <span className="stats-highlight-value">{stats.totalHoursWatched || '0.0'}h</span>
+            <small>{stats.unknownDuration} entries have unknown duration</small>
             <span className="stats-highlight-label">Total Time</span>
           </div>
         </div>
@@ -201,27 +218,29 @@ export default function Statistics() {
         </div>
       </div>
 
+      {/* Highlights — the useful takeaways */}
+      {insights.length > 0 && (
+        <div className="stats-insights">
+          {insights.map((it) => (
+            <div key={it.label} className="stats-insight glass-card-static">
+              <div className="stats-insight-icon"><it.icon size={16} strokeWidth={2} /></div>
+              <div className="stats-insight-body">
+                <span className="stats-insight-label">{it.label}</span>
+                <span className="stats-insight-value" title={String(it.value)}>{it.value}</span>
+                <span className="stats-insight-sub">{it.sub}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Charts Grid */}
       <div className="stats-grid">
         {/* Monthly Trend */}
         <div className="stats-chart-card glass-card-static">
-          <h3><TrendingUp size={16} /> Movies Per Month</h3>
+          <h3><TrendingUp size={16} /> Diary Entries Per Month</h3>
           <div className="stats-chart-container">
-            <Bar data={monthlyData} options={{
-              ...CHART_DEFAULTS,
-              plugins: { ...CHART_DEFAULTS.plugins, legend: { display: false } },
-            }} />
-          </div>
-        </div>
-
-        {/* Hours Watched Monthly */}
-        <div className="stats-chart-card glass-card-static">
-          <h3><Clock size={16} /> Hours Watched Per Month</h3>
-          <div className="stats-chart-container">
-            <Bar data={hoursMonthlyData} options={{
-              ...CHART_DEFAULTS,
-              plugins: { ...CHART_DEFAULTS.plugins, legend: { display: false } },
-            }} />
+            <Bar data={monthlyData} options={CHART_DEFAULTS} />
           </div>
         </div>
 
@@ -237,7 +256,7 @@ export default function Statistics() {
                 legend: {
                   position: 'right',
                   labels: {
-                    color: '#8a8a9a',
+                    color: TICK_COLOR,
                     font: { family: 'Inter', size: 11 },
                     padding: 12,
                     usePointStyle: true,

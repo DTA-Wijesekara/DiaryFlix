@@ -1,45 +1,11 @@
-import React from 'react';
-import { Star } from 'lucide-react';
 import './StarRating.css';
-
-export default function StarRating({ value = 0, onChange, max = 10, size = 22, readonly = false, id = 'star-rating' }) {
-  const handleClick = (rating) => {
-    if (readonly) return;
-    onChange(rating === value ? 0 : rating);
-  };
-
-  return (
-    <div className={`star-rating ${readonly ? 'readonly' : ''}`} id={id}>
-      <div className="star-rating-stars">
-        {Array.from({ length: max }, (_, i) => i + 1).map(rating => (
-          <button
-            key={rating}
-            type="button"
-            className={`star-btn ${rating <= value ? 'filled' : ''}`}
-            onClick={() => handleClick(rating)}
-            onMouseEnter={(e) => {
-              if (!readonly) {
-                e.currentTarget.parentElement.querySelectorAll('.star-btn').forEach((btn, idx) => {
-                  btn.classList.toggle('preview', idx < rating);
-                });
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (!readonly) {
-                e.currentTarget.parentElement.querySelectorAll('.star-btn').forEach(btn => {
-                  btn.classList.remove('preview');
-                });
-              }
-            }}
-            disabled={readonly}
-          >
-            <Star size={size} />
-          </button>
-        ))}
-      </div>
-      {value > 0 && (
-        <span className="star-rating-value">{value}/{max}</span>
-      )}
+export default function StarRating({ value = 0, onChange, max = 10, readonly = false, id = 'star-rating' }) {
+  if (readonly) return <span className="rating-readout">{value > 0 ? `${value} / ${max}` : 'Not rated'}</span>;
+  return <div className="rating-picker" id={id}>
+    <div className="rating-options" role="group" aria-label={`Your rating out of ${max}`}>
+      {Array.from({ length: max }, (_, i) => i + 1).map(rating => <button key={rating} type="button" aria-label={`${rating} out of ${max}`} aria-pressed={value === rating} className={value === rating ? 'selected' : ''} onClick={() => onChange(value === rating ? 0 : rating)}>{rating}</button>)}
     </div>
-  );
+    <span className="text-muted" aria-live="polite">{value ? `${value} / ${max}` : 'Not rated'}</span>
+    {value > 0 && <button type="button" className="btn btn-link" onClick={() => onChange(0)}>Clear rating</button>}
+  </div>;
 }

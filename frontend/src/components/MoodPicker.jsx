@@ -1,4 +1,3 @@
-import React from 'react';
 import './MoodPicker.css';
 
 const MOODS = [
@@ -22,6 +21,7 @@ export default function MoodPicker({ value, onChange, label = 'How are you feeli
             key={mood.key}
             type="button"
             className={`mood-btn mood-chip ${value === mood.key ? 'active' : ''}`}
+            aria-pressed={value === mood.key}
             data-mood={mood.key}
             onClick={() => onChange(value === mood.key ? '' : mood.key)}
             title={mood.label}

@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { UserPlus, Eye, EyeOff, User, Mail, Lock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -41,12 +41,12 @@ export default function Register() {
 
     setLoading(true);
     try {
-      await register({
+      const result = await register({
         email: form.email,
         password: form.password,
         displayName: form.displayName,
       });
-      navigate('/');
+      setToast({ message: result.message, type: 'success' });
     } catch (err) {
       setToast({ message: err.message, type: 'error' });
     } finally {

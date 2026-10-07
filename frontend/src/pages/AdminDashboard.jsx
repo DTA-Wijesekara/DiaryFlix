@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Users, UserCheck, UserX, ChevronDown, ChevronUp, Trash2, Crown, User,
   Activity, Film, Star, AlertTriangle
@@ -30,6 +30,7 @@ export default function AdminDashboard() {
     }
   }, []);
 
+// eslint-disable-next-line react-hooks/set-state-in-effect -- Load remote administrative data on mount.
   useEffect(() => { loadUsers(); }, [loadUsers]);
 
   const handleExpand = async (userId) => {
@@ -97,13 +98,13 @@ export default function AdminDashboard() {
       <header className="page-header">
         <span className="eyebrow">Administration</span>
         <h1>Membership</h1>
-        <p>Manage accounts, roles, and diary ownership across DiaryFLIX.</p>
+        <p>Manage accounts, roles, and diary ownership across DiaryFLIX. Up to 3 admin accounts are allowed, including inactive admins.</p>
       </header>
 
       <div className="admin-stats-grid">
         <StatTile icon={<Users size={18} />} value={totalUsers} label="Total accounts" />
         <StatTile icon={<UserCheck size={18} />} value={activeUsers} label="Active" />
-        <StatTile icon={<Crown size={18} />} value={adminCount} label="Administrators" />
+        <StatTile icon={<Crown size={18} />} value={`${adminCount} / 3`} label="Administrators" />
         <StatTile icon={<UserX size={18} />} value={totalUsers - activeUsers} label="Deactivated" />
       </div>
 
@@ -144,6 +145,7 @@ export default function AdminDashboard() {
                       <div>
                         <span className="admin-user-name">{u.displayName}</span>
                         <span className="admin-user-email">{u.email}</span>
+                        {!u.isVerified && <span className="text-muted">Email verification pending</span>}
                       </div>
                     </div>
 
@@ -180,7 +182,7 @@ export default function AdminDashboard() {
                         <div className="admin-user-stats">
                           <div className="admin-user-stat-item">
                             <Film size={14} />
-                            <span>{userStats[u.id].totalWatched} films</span>
+                            <span>{userStats[u.id].totalWatched} diary entries</span>
                           </div>
                           <div className="admin-user-stat-item">
                             <Star size={14} />
@@ -207,7 +209,7 @@ export default function AdminDashboard() {
                             disabled={busy === u.id}
                           >
                             <option value="user">User</option>
-                            <option value="admin">Admin</option>
+                            <option value="admin" disabled={u.role !== 'admin' && (adminCount >= 3 || !u.isVerified)}>Admin</option>
                           </select>
                         </div>
 
@@ -231,7 +233,7 @@ export default function AdminDashboard() {
                       {u.role === 'admin' && (
                         <div className="admin-protect-note">
                           <AlertTriangle size={13} />
-                          <span>Admin accounts have full system access. The last admin cannot be demoted or deleted.</span>
+                          <span>Admin accounts have full system access. The last verified active admin cannot be demoted, deactivated, or deleted.</span>
                         </div>
                       )}
                     </div>

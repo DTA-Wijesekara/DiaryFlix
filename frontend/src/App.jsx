@@ -1,4 +1,3 @@
-import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -12,6 +11,7 @@ import Diary from './pages/Diary';
 import LogWatch from './pages/LogWatch';
 import Library from './pages/Library';
 import MovieDetail from './pages/MovieDetail';
+import Discover from './pages/Discover';
 import SmartRewatch from './pages/SmartRewatch';
 import Wishlist from './pages/Wishlist';
 import Statistics from './pages/Statistics';
@@ -20,7 +20,9 @@ import AdminDashboard from './pages/AdminDashboard';
 import Landing from './pages/Landing';
 
 function AppContent() {
-  const { user, loading } = useAuth();
+  const { user, loading, error, syncError } = useAuth();
+
+  if (error) return <main className="auth-page"><div role="alert"><p>{error}</p><button onClick={() => window.location.reload()}>Retry connection</button></div></main>;
 
   if (loading) {
     return (
@@ -50,6 +52,7 @@ function AppContent() {
     <div className="app-layout">
       <Sidebar />
       <main className="main-content">
+        {syncError && <div role="alert">Some data could not be refreshed. <button onClick={() => window.location.reload()}>Retry</button></div>}
         <Routes>
           <Route path="/" element={
             <ProtectedRoute><Dashboard /></ProtectedRoute>
@@ -65,6 +68,9 @@ function AppContent() {
           } />
           <Route path="/movie/:id" element={
             <ProtectedRoute><MovieDetail /></ProtectedRoute>
+          } />
+          <Route path="/discover" element={
+            <ProtectedRoute><Discover /></ProtectedRoute>
           } />
           <Route path="/rewatch" element={
             <ProtectedRoute><SmartRewatch /></ProtectedRoute>

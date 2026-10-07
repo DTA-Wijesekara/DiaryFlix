@@ -1,10 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
   BookOpen,
   PlusCircle,
-  Library as LibraryIcon,
   RefreshCw,
   BarChart3,
   Settings,
@@ -12,33 +11,37 @@ import {
   LogOut,
   MoreHorizontal,
   Bookmark,
+  Compass,
   X,
 } from 'lucide-react';
+import useDialogFocus from '../hooks/useDialogFocus';
 import { useAuth } from '../context/AuthContext';
 import { getDueCount, getAllWishlist } from '../services/wishlist';
 import './Sidebar.css';
 
 const navItems = [
-  { path: '/',         icon: LayoutDashboard, label: 'Overview' },
-  { path: '/diary',    icon: BookOpen,        label: 'Diary' },
-  { path: '/log',      icon: PlusCircle,      label: 'New Entry' },
-  { path: '/wishlist', icon: Bookmark,        label: 'Wishlist',  badgeKey: 'wishlistDue' },
-  { path: '/library',  icon: LibraryIcon,     label: 'Library' },
+  { path: '/',         icon: LayoutDashboard, label: 'Home' },
+  { path: '/diary',    icon: BookOpen,        label: 'My diary' },
+  { path: '/log',      icon: PlusCircle,      label: 'Log a watch' },
+  { path: '/wishlist', icon: Bookmark,        label: 'Watchlist',  badgeKey: 'wishlistDue' },
+  { path: '/discover', icon: Compass,         label: 'Discover' },
   { path: '/rewatch',  icon: RefreshCw,       label: 'Rewatch' },
   { path: '/stats',    icon: BarChart3,       label: 'Statistics' },
   { path: '/settings', icon: Settings,        label: 'Settings' },
 ];
 
 // Primary tabs visible in the bottom bar
-const primaryNav = navItems.slice(0, 4);
+const primaryNav = ['/diary', '/wishlist', '/log', '/discover'].map(path => navItems.find(item => item.path === path));
 // Secondary items shown in the More drawer
-const secondaryNav = navItems.slice(4);
+const secondaryNav = navItems.filter(item => !primaryNav.includes(item));
 
 export default function Sidebar() {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const { user, logout } = useAuth();
   const isAdminUser = user?.role === 'admin';
   const [moreOpen, setMoreOpen] = useState(false);
+  const sheetRef = useDialogFocus(moreOpen, () => setMoreOpen(false));
   const [wishlistDue, setWishlistDue] = useState(() => getDueCount(getAllWishlist()));
 
   useEffect(() => {
@@ -89,14 +92,14 @@ export default function Sidebar() {
         </div>
 
         <nav className="sidebar-nav" aria-label="Primary">
-          {navItems.map(item => {
+          {navItems.filter(item => !['/rewatch', '/stats', '/settings'].includes(item.path)).map(item => {
             const badge = getBadge(item);
             return (
               <NavLink
                 key={item.path}
                 to={item.path}
                 end={item.path === '/'}
-                className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
+                className={({ isActive }) => `sidebar-link ${isActive || (item.path === '/diary' && pathname === '/library') ? 'active' : ''}`}
               >
                 <item.icon size={17} strokeWidth={1.8} />
                 <span>{item.label}</span>
@@ -119,6 +122,7 @@ export default function Sidebar() {
           )}
         </nav>
 
+        <NavLink to="/settings" className="sidebar-link"><Settings size={17} /> Account & settings</NavLink>
         <div className="sidebar-user">
           <div className="sidebar-user-avatar" aria-hidden="true">{initials}</div>
           <div className="sidebar-user-details">
@@ -159,11 +163,11 @@ export default function Sidebar() {
         <button
           className={`mobile-nav-link ${moreOpen ? 'active' : ''}`}
           onClick={() => setMoreOpen(true)}
-          aria-label="More options"
+          aria-label="Account and more"
           aria-expanded={moreOpen}
         >
           <MoreHorizontal size={20} strokeWidth={1.7} />
-          <span>More</span>
+          <span>Account</span>
         </button>
       </nav>
 
@@ -176,7 +180,7 @@ export default function Sidebar() {
           role="dialog"
           aria-label="More navigation"
         >
-          <div className="mobile-sheet" onClick={e => e.stopPropagation()}>
+          <div className="mobile-sheet" ref={sheetRef} tabIndex={-1} onClick={e => e.stopPropagation()}>
 
             {/* Sheet handle */}
             <div className="mobile-sheet-handle" />

@@ -686,3 +686,15 @@ em, .italic { font-style: italic; }
   }
   body::before { animation: none; }
 }
+
+/* Quiet, consistent diary surfaces. */
+body::before { display: none; }
+.btn { min-height: 44px; }
+.diary-views, .diary-searchbar { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:24px; flex-wrap:wrap; }
+.diary-searchbar .input { flex:1; min-width:180px; }
+.view-segments { display:flex; gap:4px; padding:4px; background:var(--paper-warm); border-radius:10px; }
+.view-segments a { padding:10px 18px; color:var(--ink-70); border-radius:7px; text-decoration:none; }
+.view-segments a.active { background:white; color:var(--blue); box-shadow:var(--shadow-1); }
+.quiet-disclosure { border:1px solid var(--rule); border-radius:10px; padding:16px; }
+.quiet-disclosure summary { cursor:pointer; font-weight:600; padding:4px; }
+.quiet-disclosure[open] > summary { margin-bottom:20px; }

@@ -1,3 +1,4 @@
+const { changeUser } = require('../../lib/userAdministration');
 const { query } = require('../../db');
 
 const definitions = [
@@ -118,8 +119,8 @@ const handlers = {
         SELECT
           COUNT(wl.id)::INTEGER                               AS total_watched,
           COALESCE(AVG(NULLIF(wl.rating, 0)::FLOAT), 0)      AS avg_rating,
-          COALESCE(SUM(m.runtime), 0)::INTEGER                AS total_minutes,
-          GREATEST(0, COUNT(wl.id) - COUNT(DISTINCT wl.movie_id))::INTEGER AS rewatches,
+          COALESCE(SUM(wl.watched_minutes), 0)::INTEGER                AS total_minutes,
+          GREATEST(0, COUNT(wl.id) FILTER (WHERE m.type='movie') - COUNT(DISTINCT wl.movie_id) FILTER (WHERE m.type='movie'))::INTEGER AS rewatches,
           (SELECT COUNT(*)::INTEGER FROM wishlist WHERE user_id = @userId) AS wishlist_count
         FROM watchlogs wl
         LEFT JOIN movies m ON m.id = wl.movie_id
@@ -154,64 +155,13 @@ const handlers = {
     };
   },
 
-  async deactivate_user({ id } = {}) {
-    const result = await query('UPDATE users SET is_active = FALSE WHERE id = @id', { id });
-    if (result.rowCount === 0) {
-      return { content: [{ type: 'text', text: 'User not found' }], isError: true };
-    }
-    return { content: [{ type: 'text', text: `User ${id} deactivated successfully` }] };
-  },
-
-  async activate_user({ id } = {}) {
-    const result = await query('UPDATE users SET is_active = TRUE WHERE id = @id', { id });
-    if (result.rowCount === 0) {
-      return { content: [{ type: 'text', text: 'User not found' }], isError: true };
-    }
-    return { content: [{ type: 'text', text: `User ${id} activated successfully` }] };
-  },
-
+  async deactivate_user({ id } = {}) { return result(await changeUser(id, { isActive: false })); },
+  async activate_user({ id } = {}) { return result(await changeUser(id, { isActive: true })); },
   async change_user_role({ id, role } = {}) {
-    if (!['user', 'admin'].includes(role)) {
-      return { content: [{ type: 'text', text: "Role must be 'user' or 'admin'" }], isError: true };
-    }
-    if (role === 'user') {
-      const [countRes, targetRes] = await Promise.all([
-        query("SELECT COUNT(*)::INTEGER AS cnt FROM users WHERE role = 'admin' AND is_active = TRUE"),
-        query('SELECT role FROM users WHERE id = @id', { id }),
-      ]);
-      if (targetRes.rows[0]?.role === 'admin' && countRes.rows[0].cnt <= 1) {
-        return { content: [{ type: 'text', text: 'Cannot demote the last active admin' }], isError: true };
-      }
-    }
-    const result = await query('UPDATE users SET role = @role WHERE id = @id', { role, id });
-    if (result.rowCount === 0) {
-      return { content: [{ type: 'text', text: 'User not found' }], isError: true };
-    }
-    return { content: [{ type: 'text', text: `User ${id} role updated to '${role}'` }] };
+    if (!['user','admin'].includes(role)) throw new Error('Invalid role');
+    return result(await changeUser(id, { role }));
   },
-
-  async delete_user({ id } = {}) {
-    const userRes = await query('SELECT role, email FROM users WHERE id = @id', { id });
-    if (userRes.rows.length === 0) {
-      return { content: [{ type: 'text', text: 'User not found' }], isError: true };
-    }
-    if (userRes.rows[0].role === 'admin') {
-      const countRes = await query("SELECT COUNT(*)::INTEGER AS cnt FROM users WHERE role = 'admin'");
-      if (countRes.rows[0].cnt <= 1) {
-        return { content: [{ type: 'text', text: 'Cannot delete the last admin account' }], isError: true };
-      }
-    }
-    await query('DELETE FROM watchlogs WHERE user_id = @id', { id });
-    await query('DELETE FROM wishlist   WHERE user_id = @id', { id });
-    await query('DELETE FROM movies     WHERE user_id = @id', { id });
-    await query('DELETE FROM users      WHERE id = @id',      { id });
-    return {
-      content: [{
-        type: 'text',
-        text: `User ${userRes.rows[0].email} (${id}) and all their data permanently deleted`,
-      }],
-    };
-  },
+  async delete_user({ id } = {}) { return result(await changeUser(id, { remove: true })); },
 };
-
+function result(value) { return { content: [{ type: 'text', text: JSON.stringify(value) }] }; }
 module.exports = { definitions, handlers };

@@ -1,8 +1,7 @@
-import React, { useCallback, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { LogIn, Eye, EyeOff, Mail, Lock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import Toast from '../components/Toast';
 import AuthAside from '../components/AuthAside';
 import GoogleSignInButton from '../components/GoogleSignInButton';
 import './Auth.css';
@@ -14,28 +13,30 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [toast, setToast] = useState(null);
+  const [authError, setAuthError] = useState(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setAuthError(null);
     setLoading(true);
     try {
       await login(email, password);
       navigate('/');
     } catch (err) {
-      setToast({ message: err.message, type: 'error' });
+      setAuthError(err);
     } finally {
       setLoading(false);
     }
   };
 
   const handleGoogle = useCallback(async (credential) => {
+    setAuthError(null);
     setLoading(true);
     try {
       await loginWithGoogle(credential);
       navigate('/');
     } catch (err) {
-      setToast({ message: err.message || 'Google sign-in failed', type: 'error' });
+      setAuthError(err);
     } finally {
       setLoading(false);
     }
@@ -57,11 +58,15 @@ export default function Login() {
             </div>
 
             <div className="auth-google">
-              <GoogleSignInButton onCredential={handleGoogle} onError={(err) => setToast({ message: err.message, type: 'error' })} />
+              <GoogleSignInButton onCredential={handleGoogle} onError={setAuthError} />
             </div>
 
             <div className="auth-divider"><span>or</span></div>
 
+            {authError && <div className="auth-inline-error" role="alert">
+              <p>{authError.message}</p>
+              {['EMAIL_UNVERIFIED', 'LINK_REQUIRED'].includes(authError.code) && <Link to="/forgot-password">Verify or recover your account</Link>}
+            </div>}
             <form className="auth-form" onSubmit={handleSubmit} noValidate>
               <div className="auth-input-group">
                 <label htmlFor="login-email">Email</label>
@@ -130,7 +135,7 @@ export default function Login() {
         </div>
       </div>
 
-      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
     </div>
   );
 }

@@ -1,11 +1,11 @@
-FROM node:20-slim
+FROM node:22-slim
 
 WORKDIR /app
 
 # Copy manifests first for layer caching
 COPY package*.json ./
 
-# Skip optional deps (msnodesqlv8 is Windows-only; the app falls back to mssql/tedious)
+# Install runtime packages; no native SQL Server driver is used.
 RUN npm ci --omit=optional
 
 # Copy the rest of the source

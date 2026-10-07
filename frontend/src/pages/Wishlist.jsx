@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Bookmark, Plus, Calendar, Film, AlertCircle, Check, X, Trash2, Pencil,
@@ -59,9 +59,9 @@ export default function Wishlist() {
       track('wishlist_item_added', { title: entry.title, has_date: !!entry.watch_date });
       refresh();
       setShowAdd(false);
-      setToast({ message: `"${entry.title}" added to your wishlist`, type: 'success' });
+      setToast({ message: `"${entry.title}" added to your watchlist`, type: 'success' });
     } catch (err) {
-      setToast({ message: err.message || 'Could not add to wishlist', type: 'error' });
+      setToast({ message: err.message || 'Could not add to watchlist', type: 'error' });
     }
   };
 
@@ -77,7 +77,7 @@ export default function Wishlist() {
   };
 
   const handleDelete = async (id, title) => {
-    if (!window.confirm(`Remove "${title}" from your wishlist?`)) return;
+    if (!window.confirm(`Remove "${title}" from your watchlist?`)) return;
     try {
       await deleteWishlist(id);
       refresh();
@@ -98,7 +98,7 @@ export default function Wishlist() {
       <header className="page-header wishlist-header">
         <div>
           <span className="eyebrow"><Bookmark size={12} /> Up next</span>
-          <h1>Wishlist</h1>
+          <h1>Watchlist</h1>
           <p>
             {items.length === 0
               ? 'Save films you want to watch later — assign a date and we\'ll remind you.'
@@ -106,14 +106,14 @@ export default function Wishlist() {
           </p>
         </div>
         <button className="btn btn-primary" onClick={() => setShowAdd(true)}>
-          <Plus size={16} /> Add to wishlist
+          <Plus size={16} /> Add to watchlist
         </button>
       </header>
 
       {items.length === 0 ? (
         <div className="empty-state wishlist-empty">
           <div className="empty-state-icon"><Bookmark size={20} /></div>
-          <h3>Your wishlist is empty</h3>
+          <h3>Your watchlist is empty</h3>
           <p>Save a film you've heard about — assign a date and we'll surface it on the day.</p>
           <button className="btn btn-accent" onClick={() => setShowAdd(true)}>
             <Plus size={16} /> Add your first film
@@ -131,7 +131,7 @@ export default function Wishlist() {
             emptyMessage="Nothing planned for today."
           />
           <Section
-            title="Overdue"
+            title="Previously planned"
             tone="overdue"
             items={buckets.overdue}
             onMarkWatched={handleMarkWatched}
@@ -253,7 +253,7 @@ function WishlistCard({ item, tone, onMarkWatched, onEdit, onDelete }) {
 
         <div className="wishlist-card-actions">
           <button className="btn btn-accent btn-sm" onClick={onMarkWatched}>
-            <Check size={14} /> Mark as watched
+            <Check size={14} /> Log this film
           </button>
           <button className="btn btn-ghost btn-sm" onClick={onEdit} aria-label="Edit">
             <Pencil size={14} />
@@ -325,7 +325,7 @@ function WishlistEditor({ mode, initial, onSubmit, onClose }) {
     <div className="wishlist-modal-overlay" onClick={onClose} role="dialog" aria-modal="true">
       <div className="wishlist-modal" onClick={e => e.stopPropagation()}>
         <header className="wishlist-modal-head">
-          <h2>{mode === 'add' ? 'Add to wishlist' : 'Edit wishlist item'}</h2>
+          <h2>{mode === 'add' ? 'Add to watchlist' : 'Edit watchlist item'}</h2>
           <button className="wishlist-modal-close" onClick={onClose} aria-label="Close">
             <X size={18} />
           </button>
@@ -409,7 +409,7 @@ function WishlistEditor({ mode, initial, onSubmit, onClose }) {
           <div className="wishlist-modal-actions">
             <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
             <button type="submit" className="btn btn-primary" disabled={saving || !form.title.trim()}>
-              {saving ? 'Saving…' : (mode === 'add' ? 'Add to wishlist' : 'Save changes')}
+              {saving ? 'Saving…' : (mode === 'add' ? 'Add to watchlist' : 'Save changes')}
             </button>
           </div>
         </form>

@@ -72,6 +72,40 @@
   color: var(--text-tertiary);
 }
 
+/* Account / password forms */
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  align-items: flex-start;
+}
+
+.settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.settings-field-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.settings-field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-md);
+  width: 100%;
+}
+
+@media (max-width: 640px) {
+  .settings-field-row {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Data Cards */
 .settings-data-actions {
   display: grid;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Plus, X, Music, ExternalLink, Play, Square, Loader } from 'lucide-react';
 import { searchMovieSongs } from '../services/itunes';
 import './SongEntry.css';
@@ -15,6 +15,7 @@ export default function SongEntry({ songs = [], onChange, movieTitle = '' }) {
   // Fetch suggestions when movie title changes
   useEffect(() => {
     if (!movieTitle) {
+// eslint-disable-next-line react-hooks/set-state-in-effect -- Clear suggestions when the external movie selection is removed.
       setSuggestions([]);
       return;
     }

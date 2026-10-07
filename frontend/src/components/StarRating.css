@@ -1,50 +1,7 @@
-.star-rating {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-}
-
-.star-rating-stars {
-  display: flex;
-  gap: 3px;
-}
-
-.star-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 2px;
-  color: var(--ink-15);
-  transition: transform var(--t-fast), color var(--t-fast);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.star-btn:not(:disabled):hover {
-  transform: scale(1.18);
-}
-
-.star-btn.filled svg,
-.star-btn.preview svg {
-  fill: var(--blue);
-  color: var(--blue);
-}
-
-.star-btn.preview svg {
-  opacity: 0.5;
-}
-
-.star-rating-value {
-  font-family: var(--font-mono);
-  font-weight: 600;
-  font-size: 0.95rem;
-  color: var(--blue);
-  min-width: 44px;
-  letter-spacing: 0.02em;
-}
-
-.star-rating.readonly .star-btn {
-  cursor: default;
-  pointer-events: none;
-}
+.rating-picker { display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
+.rating-options { display:grid; grid-template-columns:repeat(10,minmax(0,1fr)); gap:6px; width:100%; }
+.rating-options button { min-height:44px; border:1px solid var(--rule-strong); background:var(--paper-elevated); color:var(--ink); border-radius:8px; font:inherit; cursor:pointer; }
+.rating-options button:hover { background:var(--blue-50); }
+.rating-options button.selected { background:var(--blue); color:white; border-color:var(--blue); }
+.rating-readout { font-size:1.2rem; font-weight:600; color:var(--ink); }
+@media(max-width:480px) { .rating-options { grid-template-columns:repeat(5,minmax(0,1fr)); } }

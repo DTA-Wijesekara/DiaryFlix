@@ -1,7 +1,8 @@
-// CineLog — Storage service (hybrid).
-// The backend is the source of truth; localStorage is a synchronous cache for UI reads.
+import { dataCache } from './dataCache';
+// CineLog — Storage service.
+// The backend is the source of truth; an in-memory cache provides synchronous UI reads.
 
-import { getCurrentUserId, apiFetch, getToken } from './auth';
+import { getCurrentUserId, apiFetch, apiFetchAll, getToken } from './auth';
 
 function getKeys() {
   const uid = getCurrentUserId() || 'anonymous';
@@ -14,14 +15,18 @@ function getKeys() {
 
 // ---- Sync with server ----
 
-export async function fetchLogsFromServer() {
+export async function fetchLogsFromServer({ strict = false } = {}) {
   if (!getToken()) return [];
   try {
-    const logs = await apiFetch('/logs');
+    const owner = getCurrentUserId();
+    const logs = await apiFetchAll('/logs');
+    if (owner !== getCurrentUserId()) return [];
     saveLogs(logs);
     updateProfileStats(logs);
     return logs;
   } catch (e) {
+    window.dispatchEvent(new CustomEvent('cinelog:sync-error', { detail: e.message }));
+    if (strict) throw e;
     console.error('Failed to fetch logs from server:', e.message);
     return getAllLogs(); // cache fallback
   }
@@ -31,7 +36,7 @@ export async function fetchLogsFromServer() {
 
 export function getAllLogs() {
   try {
-    const data = localStorage.getItem(getKeys().WATCH_LOG);
+    const data = dataCache.getItem(getKeys().WATCH_LOG);
     return data ? JSON.parse(data) : [];
   } catch {
     return [];
@@ -48,6 +53,7 @@ export async function addLog(entry) {
   logs.unshift(created);
   saveLogs(logs);
   updateProfileStats(logs);
+  await fetchLogsFromServer();
   return created;
 }
 
@@ -67,6 +73,7 @@ export async function updateLog(id, updates) {
   if (idx !== -1) logs[idx] = saved;
   saveLogs(logs);
   updateProfileStats(logs);
+  await fetchLogsFromServer();
   return saved;
 }
 
@@ -75,6 +82,7 @@ export async function deleteLog(id) {
   const logs = getAllLogs().filter(log => log.id !== id);
   saveLogs(logs);
   updateProfileStats(logs);
+  await fetchLogsFromServer();
 }
 
 // ---- Filtering ----
@@ -105,9 +113,13 @@ export function getStats() {
   const logs = getAllLogs();
 
   const totalWatched = logs.length;
-  const totalRewatches = logs.reduce((sum, l) => sum + (l.rewatchCount || 0), 0);
-  const avgRating = logs.length > 0
-    ? (logs.reduce((sum, l) => sum + (l.rating || 0), 0) / logs.length).toFixed(1)
+  const films = logs.filter(l => l.type !== 'tv_series');
+  const totalRewatches = films.length - new Set(films.map(l => l.movieId || l.id)).size;
+  const totalEpisodes = logs.filter(l => l.episodeId).length;
+  const minutes = l => l.watchedMinutes ?? (l.type === 'tv_series' ? 0 : l.runtime || 0);
+  const rated = logs.filter(l => l.rating > 0);
+  const avgRating = rated.length > 0
+    ? (rated.reduce((sum, l) => sum + l.rating, 0) / rated.length).toFixed(1)
     : 0;
 
   const byIndustry = {};
@@ -133,13 +145,13 @@ export function getStats() {
   }
   let totalRuntime = 0;
   logs.forEach(l => {
-    totalRuntime += (l.runtime || 0);
+    totalRuntime += minutes(l);
     if (l.dateWatched) {
       const d = new Date(l.dateWatched);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       if (Object.prototype.hasOwnProperty.call(byMonth, key)) {
         byMonth[key]++;
-        hoursByMonth[key] += parseFloat(((l.runtime || 0) / 60).toFixed(2));
+        hoursByMonth[key] += parseFloat((minutes(l) / 60).toFixed(2));
       }
     }
   });
@@ -216,7 +228,7 @@ export function getStats() {
   });
 
   return {
-    totalWatched, totalRewatches, avgRating,
+    totalWatched, totalRewatches, totalEpisodes, totalFilms: films.length, unknownDuration: logs.filter(l => !minutes(l)).length, avgRating,
     byIndustry, byMood, byMonth, hoursByMonth,
     totalHoursWatched, avgHoursPerDay,
     ratingDist, topRated, topActors, topDirectors,
@@ -228,7 +240,7 @@ export function getStats() {
 
 export function getProfile() {
   try {
-    const data = localStorage.getItem(getKeys().USER_PROFILE);
+    const data = dataCache.getItem(getKeys().USER_PROFILE);
     return data ? JSON.parse(data) : { displayName: 'Cinephile', joinedAt: new Date().toISOString() };
   } catch {
     return { displayName: 'Cinephile', joinedAt: new Date().toISOString() };
@@ -238,7 +250,7 @@ export function getProfile() {
 export function updateProfile(updates) {
   const profile = getProfile();
   const updated = { ...profile, ...updates };
-  localStorage.setItem(getKeys().USER_PROFILE, JSON.stringify(updated));
+  dataCache.setItem(getKeys().USER_PROFILE, JSON.stringify(updated));
   return updated;
 }
 
@@ -266,30 +278,51 @@ export function cacheTMDB(tmdbId, data) {
   }
 }
 
-// ---- Import / Export ----
+// ---- Export ----
 
-export function exportToJSON() {
-  return JSON.stringify({
-    version: 1,
-    exportedAt: new Date().toISOString(),
-    logs: getAllLogs(),
-    profile: getProfile(),
-  }, null, 2);
-}
+// Build a spreadsheet of all logs as CSV. CSV opens natively in Excel,
+// Google Sheets, and Numbers.
+export function exportToCSV() {
+  const columns = [
+    ['Title',        l => l.title],
+    ['Year',         l => l.year],
+    ['Type',         l => l.type],
+    ['Entry type', l => l.entryType || (l.type === 'tv_series' ? 'series' : 'film')],
+    ['Season', l => l.seasonNumber],
+    ['Episode', l => l.episodeNumber],
+    ['Episode title', l => l.episodeTitle],
+    ['Watched minutes', l => l.watchedMinutes],
+    ['Industry',     l => l.industry],
+    ['Rating',       l => l.rating],
+    ['Date Watched', l => l.dateWatched],
+    ['Mood Before',  l => l.moodBefore],
+    ['Mood After',   l => l.moodAfter],
+    ['Platform',     l => l.platform],
+    ['Director',     l => l.director],
+    ['Rewatches',    l => l.rewatchCount],
+    ['Notes',        l => l.notes],
+  ];
 
-export function importFromCSV(/* csvText */) {
-  // Placeholder: CSV import would POST each parsed row to /api/logs.
-  return [];
+  const escape = (val) => {
+    let s = val == null ? '' : String(val);
+    if (/^[=+@\-\t\r]/.test(s)) s = "'" + s;
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+
+  const header = columns.map(c => c[0]).join(',');
+  const rows = getAllLogs().map(l => columns.map(c => escape(c[1](l))).join(','));
+  return [header, ...rows].join('\r\n');
 }
 
 // ---- Helpers ----
 
 function saveLogs(logs) {
-  localStorage.setItem(getKeys().WATCH_LOG, JSON.stringify(logs));
+  dataCache.setItem(getKeys().WATCH_LOG, JSON.stringify(logs));
+  window.dispatchEvent(new CustomEvent('cinelog:logs-changed'));
 }
 
 function updateProfileStats(logs) {
   const profile = getProfile();
   profile.totalWatched = logs.length;
-  localStorage.setItem(getKeys().USER_PROFILE, JSON.stringify(profile));
+  dataCache.setItem(getKeys().USER_PROFILE, JSON.stringify(profile));
 }
