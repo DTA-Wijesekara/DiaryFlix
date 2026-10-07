@@ -5,14 +5,22 @@
 const bcrypt = require('bcryptjs');
 const config = require('./config');
 const { Pool } = require('pg');
+const { createDatabaseStream } = require('./lib/databaseSocket');
+const { AsyncLocalStorage } = require('async_hooks');
+const transactionContext = new AsyncLocalStorage();
 
 let pool = null;
 
 function getPool() {
   if (!pool) {
+    const url = new URL(config.db.url);
+    for (const key of ['sslmode', 'sslcert', 'sslkey', 'sslrootcert']) url.searchParams.delete(key);
     pool = new Pool({
-      connectionString: config.db.url,
-      ssl: config.db.ssl ? { rejectUnauthorized: false } : false,
+      connectionString: url.toString(),
+      ...(process.env.DB_IP_FAMILY ? { stream: createDatabaseStream(Number(process.env.DB_IP_FAMILY)) } : {}),
+      connectionTimeoutMillis: 15000,
+      keepAlive: true,
+      ssl: config.db.ssl ? { rejectUnauthorized: true, ...(process.env.DB_SSL_CA ? { ca: process.env.DB_SSL_CA } : {}) } : false,
     });
     pool.on('error', err => console.error('[db] pool error:', err.message));
   }
@@ -30,13 +38,32 @@ async function closePool() {
 // Write SQL with @name placeholders; pass params as { name: value }.
 // Each @name occurrence is replaced with $N in order (duplicates get separate $N with same value — pg handles this fine).
 async function query(sql, params = {}) {
-  const p = getPool();
+  const p = transactionContext.getStore() || getPool();
   const values = [];
-  const text = sql.replace(/@(\w+)/g, (_, name) => {
-    values.push(name in params ? params[name] : null);
+  const text = sql.replace(/'(?:''|[^'])*'|"(?:""|[^"])*"|--[^\n]*|\/\*[\s\S]*?\*\/|@(\w+)/g, (match, name) => {
+    if (!name) return match;
+    if (!Object.prototype.hasOwnProperty.call(params, name)) throw new Error('Missing SQL parameter: ' + name);
+    values.push(params[name]);
     return `$${values.length}`;
   });
   return p.query(text, values);
+}
+
+// All queries inside the callback use the same connection, including nested services.
+async function transaction(fn) {
+  if (transactionContext.getStore()) return fn();
+  const client = await getPool().connect();
+  try {
+    await client.query('BEGIN');
+    const result = await transactionContext.run(client, fn);
+    await client.query('COMMIT');
+    return result;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 async function ensureSchema() {
@@ -153,8 +180,13 @@ async function maybeSeedAdmin() {
     return;
   }
 
+  const created = await transaction(async () => {
+  await query('SELECT pg_advisory_xact_lock(734922)');
   const existing = await query('SELECT id FROM users WHERE email = @email', { email: config.adminSeed.email });
   if (existing.rows.length > 0) return;
+
+  const count = (await query("SELECT COUNT(*)::int AS cnt FROM users WHERE role='admin'")).rows[0].cnt;
+  if (count >= 3) throw new Error('Only 3 admin accounts are allowed; admin seeding stopped');
 
   const salt = await bcrypt.genSalt(config.bcryptRounds);
   const hash = await bcrypt.hash(config.adminSeed.password, salt);
@@ -171,14 +203,20 @@ async function maybeSeedAdmin() {
     salt,
   });
 
+  return true;
+  });
+  if (!created) return;
+
   console.log(`[db] Seeded admin account <${config.adminSeed.email}>.`);
 }
 
-async function initDB() {
-  console.log('[db] Connecting...');
-  await ensureSchema();
-  await maybeSeedAdmin();
-  console.log('[db] Ready.');
+async function findAuthUser(id) {
+  return (await query('SELECT id, email, role, is_active, auth_version, email_verified_at FROM users WHERE id = @id', { id })).rows[0];
 }
 
-module.exports = { initDB, getPool, closePool, query };
+async function initDB() {
+  const { rows } = await query('SELECT MAX(version) AS version FROM schema_migrations');
+  if (rows[0]?.version !== 6) throw new Error('Run npm run db:migrate before starting the application');
+}
+
+module.exports = { initDB, getPool, closePool, query, transaction, ensureSchema, maybeSeedAdmin, findAuthUser };

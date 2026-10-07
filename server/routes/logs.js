@@ -6,13 +6,16 @@
 // DELETE /logs/:id          delete watchlog; deletes movie if no more watches remain
 
 const express = require('express');
-const { query } = require('../db');
+const { randomUUID } = require('node:crypto');
+const { upsertEpisode, requireSeries } = require('../lib/tv');
+const { query, transaction } = require('../db');
 const {
   authenticateJWT,
   asyncHandler,
   HttpError,
   assertString,
   clampInt,
+  assertDate,
 } = require('../middleware');
 
 const router = express.Router();
@@ -34,6 +37,7 @@ function rowToApi(row) {
   if (!row) return null;
   const out = { ...row };
   for (const f of JSON_FIELDS) out[f] = parseJsonArray(row[f]);
+  out.entryType = out.episodeId ? 'episode' : out.type === 'tv_series' ? 'series' : 'film';
   out.rewatchCount = Math.max(0, (Number(out.watchCount) || 1) - 1);
   return out;
 }
@@ -43,7 +47,8 @@ function rowToApi(row) {
 function sanitiseMovieFields(body) {
   return {
     title:        assertString(body.title, 'title', { min: 1, max: 500 }),
-    type:         body.type         ? String(body.type).slice(0, 32)   : null,
+    type:         body.type === 'tv_series' ? 'tv_series' : 'movie',
+    movieId:      body.movieId || null,
     year:         body.year != null ? String(body.year).slice(0, 16)   : null,
     tmdbId:       clampInt(body.tmdbId, { fallback: null }),
     posterPath:   body.posterPath   ? String(body.posterPath).slice(0, 255)   : null,
@@ -60,7 +65,7 @@ function sanitiseMovieFields(body) {
 
 function sanitiseWatchFields(body) {
   return {
-    dateWatched:     body.dateWatched ? assertString(body.dateWatched, 'dateWatched', { max: 32 }) : null,
+    dateWatched:     assertDate(body.dateWatched, 'dateWatched'),
     category:        body.category != null ? String(body.category).slice(0, 255) : null,
     rating:          clampInt(body.rating, { min: 0, max: 10, fallback: 0 }),
     moodBefore:      body.moodBefore   ? String(body.moodBefore).slice(0, 64)   : null,
@@ -77,6 +82,8 @@ function sanitiseWatchFields(body) {
 // ── Movie upsert ─────────────────────────────────────────────────────────────
 
 async function upsertMovie(userId, movie) {
+  // Serialize writes for this owner; transaction-scoped lock also protects manual rewatches.
+  await query('SELECT id FROM users WHERE id = @userId FOR UPDATE', { userId });
   const {
     tmdbId, title, type, year, posterPath, backdropPath, overview,
     director, actors, actresses, genres, runtime, industry,
@@ -88,20 +95,18 @@ async function upsertMovie(userId, movie) {
 
   let existing = null;
 
-  if (tmdbId) {
+  if (movie.movieId) {
+    const found = await query('SELECT id,type FROM movies WHERE id = @id AND user_id = @userId', { id: movie.movieId, userId });
+    if (!found.rows.length) throw new HttpError(404, 'Movie not found');
+    existing = found.rows[0];
+    if(existing.type !== type) throw new HttpError(400, 'The content type of a saved title cannot be changed');
+  }
+  if (!existing && tmdbId) {
     const r = await query(
-      'SELECT id FROM movies WHERE user_id = @userId AND tmdb_id = @tmdbId',
-      { userId, tmdbId }
+      'SELECT id FROM movies WHERE user_id = @userId AND tmdb_id = @tmdbId AND type = @type',
+      { userId, tmdbId, type }
     );
     if (r.rows.length > 0) existing = r.rows[0];
-  }
-
-  if (!existing) {
-    const r = await query(
-      'SELECT id FROM movies WHERE user_id = @userId AND LOWER(title) = @title AND tmdb_id IS NULL',
-      { userId, title: (title || '').toLowerCase().trim() }
-    );
-    if (r.rows.length > 0 && !tmdbId) existing = r.rows[0];
   }
 
   if (existing) {
@@ -144,6 +149,9 @@ async function upsertMovie(userId, movie) {
 const LOG_SELECT = `
   SELECT
     wl.id,
+    wl.episode_id AS "episodeId", wl.watched_minutes AS "watchedMinutes",
+    e.number AS "episodeNumber", s.number AS "seasonNumber", e.title AS "episodeTitle",
+    e.runtime AS "episodeRuntime", to_char(e.air_date,'YYYY-MM-DD') AS "episodeAirDate",
     wl.user_id          AS "userId",
     wl.movie_id         AS "movieId",
     wl.date_watched     AS "dateWatched",
@@ -165,9 +173,11 @@ const LOG_SELECT = `
     m.backdrop_path     AS "backdropPath",
     m.overview,
     m.director, m.actors, m.actresses, m.genres, m.runtime, m.industry,
-    COUNT(wl.id) OVER (PARTITION BY wl.movie_id)::INTEGER AS "watchCount"
+    (SELECT COUNT(*)::INTEGER FROM watchlogs counts WHERE counts.movie_id = wl.movie_id AND counts.user_id = wl.user_id AND counts.episode_id IS NOT DISTINCT FROM wl.episode_id) AS "watchCount"
   FROM watchlogs wl
   LEFT JOIN movies m ON m.id = wl.movie_id
+  LEFT JOIN tv_episodes e ON e.id=wl.episode_id
+  LEFT JOIN tv_seasons s ON s.id=e.season_id
 `;
 
 // ── GET /logs ────────────────────────────────────────────────────────────────
@@ -179,8 +189,9 @@ router.get('/', asyncHandler(async (req, res) => {
     ORDER BY
       CASE WHEN wl.date_watched IS NULL THEN 1 ELSE 0 END,
       wl.date_watched DESC,
-      wl.created_at   DESC
-  `, { userId: req.user.id });
+      wl.created_at   DESC, wl.id DESC
+    LIMIT @limit OFFSET @offset
+  `, { userId: req.user.id, limit: clampInt(req.query.limit ?? 200, { min: 1, max: 500 }), offset: clampInt(req.query.offset ?? 0, { min: 0 }) });
 
   res.json(result.rows.map(rowToApi));
 }));
@@ -199,23 +210,45 @@ router.get('/:id', asyncHandler(async (req, res) => {
 // ── POST /logs ───────────────────────────────────────────────────────────────
 
 router.post('/', asyncHandler(async (req, res) => {
+  const saved = await transaction(async () => {
   const movie = sanitiseMovieFields(req.body);
   const watch = sanitiseWatchFields(req.body);
 
+  if (req.body.episode) {
+    const requestKey=assertString(req.body.requestId,'requestId',{min:16,max:100});
+    await query('SELECT id FROM users WHERE id=@userId FOR UPDATE',{userId:req.user.id});
+    const old=(await query(`${LOG_SELECT} WHERE wl.user_id=@userId AND wl.client_request_id=@requestKey`,{userId:req.user.id,requestKey})).rows[0];
+    if(old) {
+      if(old.type!==movie.type || old.title!==movie.title || (movie.movieId && old.movieId!==movie.movieId) || old.seasonNumber!==req.body.episode.seasonNumber || old.episodeNumber!==req.body.episode.episodeNumber) throw new HttpError(409,'This request ID was already used for another watch');
+      return rowToApi(old);
+    }
+  }
   const movieId = await upsertMovie(req.user.id, movie);
-  const logId   = `log_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+  const logId = randomUUID();
+  let episodeId = null;
+  let watchedMinutes = movie.type === 'movie' ? (movie.runtime || null) : null;
+  let requestKey = null;
+  if (req.body.episode) {
+    if(movie.type !== 'tv_series') throw new HttpError(400, 'Films cannot contain episode watches');
+    await requireSeries(movieId,req.user.id);
+    requestKey=assertString(req.body.requestId,'requestId',{min:16,max:100});
+    const episode=await upsertEpisode(movieId,req.user.id,req.body.episode);
+    episodeId=episode.id; watchedMinutes=episode.runtime;
+    const priorWatch=(await query('SELECT id FROM watchlogs WHERE user_id=@userId AND episode_id=@episodeId LIMIT 1',{userId:req.user.id,episodeId})).rows[0];
+    if(priorWatch && req.body.allowRewatch !== true) throw new HttpError(409,'This episode is already watched. Choose Log another watch to record a rewatch.','EPISODE_ALREADY_WATCHED');
+  }
 
   await query(`
     INSERT INTO watchlogs
-      (id, user_id, movie_id, date_watched, rating, category,
+      (id, user_id, movie_id, episode_id, watched_minutes, client_request_id, date_watched, rating, category,
        mood_before, mood_after, platform, watched_with, occasion,
        favourite_songs, favourite_quotes, notes)
     VALUES
-      (@id, @userId, @movieId, @dateWatched, @rating, @category,
+      (@id, @userId, @movieId, @episodeId, @watchedMinutes, @requestKey, @dateWatched, @rating, @category,
        @moodBefore, @moodAfter, @platform, @watchedWith, @occasion,
        @favouriteSongs, @favouriteQuotes, @notes)
   `, {
-    id: logId, userId: req.user.id, movieId,
+    id: logId, userId: req.user.id, movieId, episodeId, watchedMinutes, requestKey,
     dateWatched:     watch.dateWatched,
     rating:          watch.rating,
     category:        watch.category,
@@ -233,14 +266,17 @@ router.post('/', asyncHandler(async (req, res) => {
     `${LOG_SELECT} WHERE wl.id = @id AND wl.user_id = @userId`,
     { id: logId, userId: req.user.id }
   );
-  res.status(201).json(rowToApi(result.rows[0]));
+  return rowToApi(result.rows[0]);
+  });
+  res.status(201).json(saved);
 }));
 
 // ── PUT /logs/:id ────────────────────────────────────────────────────────────
 
 router.put('/:id', asyncHandler(async (req, res) => {
+  const saved = await transaction(async () => {
   const existing = await query(
-    'SELECT id, movie_id FROM watchlogs WHERE id = @id AND user_id = @userId',
+    'SELECT w.id,w.movie_id,w.episode_id,m.type FROM watchlogs w JOIN movies m ON m.id=w.movie_id WHERE w.id=@id AND w.user_id=@userId FOR UPDATE OF w,m',
     { id: req.params.id, userId: req.user.id }
   );
   if (existing.rows.length === 0) throw new HttpError(404, 'Log not found');
@@ -248,6 +284,8 @@ router.put('/:id', asyncHandler(async (req, res) => {
   const { movie_id: movieId } = existing.rows[0];
   const movie = sanitiseMovieFields(req.body);
   const watch = sanitiseWatchFields(req.body);
+  if(movie.type!==existing.rows[0].type) throw new HttpError(400,'The content type of a saved entry cannot be changed');
+  if(req.body.episodeId && req.body.episodeId!==existing.rows[0].episode_id) throw new HttpError(400,'Episode identity cannot be changed');
 
   if (movieId) {
     await query(`
@@ -297,38 +335,16 @@ router.put('/:id', asyncHandler(async (req, res) => {
     `${LOG_SELECT} WHERE wl.id = @id AND wl.user_id = @userId`,
     { id: req.params.id, userId: req.user.id }
   );
-  res.json(rowToApi(result.rows[0]));
+  return rowToApi(result.rows[0]);
+  });
+  res.json(saved);
 }));
 
 // ── DELETE /logs/:id ─────────────────────────────────────────────────────────
 
 router.delete('/:id', asyncHandler(async (req, res) => {
-  const existing = await query(
-    'SELECT id, movie_id FROM watchlogs WHERE id = @id AND user_id = @userId',
-    { id: req.params.id, userId: req.user.id }
-  );
-  if (existing.rows.length === 0) throw new HttpError(404, 'Log not found');
-
-  const { movie_id: movieId } = existing.rows[0];
-
-  await query(
-    'DELETE FROM watchlogs WHERE id = @id AND user_id = @userId',
-    { id: req.params.id, userId: req.user.id }
-  );
-
-  if (movieId) {
-    const remaining = await query(
-      'SELECT COUNT(*)::INTEGER AS cnt FROM watchlogs WHERE movie_id = @movieId AND user_id = @userId',
-      { movieId, userId: req.user.id }
-    );
-    if (remaining.rows[0].cnt === 0) {
-      await query(
-        'DELETE FROM movies WHERE id = @id AND user_id = @userId',
-        { id: movieId, userId: req.user.id }
-      );
-    }
-  }
-
+  const result = await query('DELETE FROM watchlogs WHERE id = @id AND user_id = @userId', { id: req.params.id, userId: req.user.id });
+  if (!result.rowCount) throw new HttpError(404, 'Log not found');
   res.json({ success: true });
 }));
 

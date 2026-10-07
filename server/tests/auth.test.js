@@ -3,6 +3,8 @@ jest.mock('../db', () => ({
   closePool: jest.fn(() => Promise.resolve()),
   getPool:   jest.fn(),
   query:     jest.fn(),
+  transaction: (fn) => fn(),
+  findAuthUser: async (id) => ({ id, email: 'test@example.com', role: id === 'admin_test' ? 'admin' : 'user', is_active: true, auth_version: 0, email_verified_at: new Date() }),
 }));
 
 jest.mock('../email', () => ({
@@ -19,7 +21,7 @@ const app = require('../server');
 beforeEach(() => jest.clearAllMocks());
 
 describe('POST /api/auth/register', () => {
-  test('1. creates a new user and returns a JWT token', async () => {
+  test('1. creates an unverified user without issuing a session', async () => {
     query
       .mockResolvedValueOnce({ rows: [] })  // no existing user with that email
       .mockResolvedValueOnce({ rows: [] }); // INSERT
@@ -31,9 +33,9 @@ describe('POST /api/auth/register', () => {
     });
 
     expect(res.status).toBe(201);
-    expect(res.body.token).toBeDefined();
-    expect(res.body.user.email).toBe('new@example.com');
-    expect(res.body.user.role).toBe('user');
+    expect(res.body.token).toBeUndefined();
+    expect(res.body.verificationRequired).toBe(true);
+
   });
 
   test('2. rejects an invalid email format with 400', async () => {

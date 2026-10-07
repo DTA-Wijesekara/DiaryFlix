@@ -34,3 +34,39 @@ mynotes.txt
 
 # Claude Code local settings (per-developer)
 .claude/
+# Isolated test databases
+.test-postgres*/
+
+playwright-report/
+test-results/
+eslint-report.json
+.audit-report.json
+
+# Local tooling and hosting configuration
+.codex/
+.mcp.json
+.vercel/
+.netlify/
+.cache/
+.vite/
+
+# Coverage and additional test/build output
+coverage/
+.nyc_output/
+blob-report/
+build/
+*.tsbuildinfo
+
+# Database backups and private certificate material
+/.backups.local/
+*.dump
+*.backup
+*.key
+*.pem
+*.p12
+*.pfx
+
+# Windows and editor temporary files
+Thumbs.db
+Desktop.ini
+*~

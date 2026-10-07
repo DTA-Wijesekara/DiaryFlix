@@ -1,0 +1,9 @@
+.tv-panel { padding: 24px; border: 1px solid var(--rule); border-radius: 16px; margin-block: 20px; background: var(--paper-elevated); display: grid; gap: 16px; }
+.tv-panel h2, .tv-panel p { margin: 0; }
+.tv-panel label { display: grid; gap: 8px; min-width: 0; }
+.tv-panel .form-row { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; }
+.tv-panel > button { justify-self: start; white-space: normal; }
+.tv-panel summary { cursor: pointer; padding-block: 12px; }
+.tv-panel ul { padding-left: 20px; }
+.tv-panel .tv-bulk { display: grid; gap: 12px; margin-block: 12px; }
+@media(max-width: 540px) { .tv-panel { padding: 16px; } .tv-panel .form-row { grid-template-columns: 1fr; } }

@@ -12,6 +12,9 @@ function getTransporter() {
       host: config.smtp.host,
       port: config.smtp.port,
       secure: config.smtp.secure,
+      requireTLS: !config.smtp.secure,
+      disableFileAccess: true,
+      disableUrlAccess: true,
       auth: { user: config.smtp.user, pass: config.smtp.pass },
     });
   }
@@ -27,7 +30,7 @@ function escapeHtml(s) {
 async function send({ to, subject, text, html }) {
   const t = getTransporter();
   if (!t) {
-    console.warn(`[email] SMTP not configured. Would send to <${to}>:\n  Subject: ${subject}\n  ${text || ''}`);
+    console.warn('[email] SMTP not configured; message was not delivered');
     return { delivered: false };
   }
   const info = await t.sendMail({

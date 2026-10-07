@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { CheckCircle, AlertCircle, X } from 'lucide-react';
 import './Toast.css';
 
@@ -19,14 +19,14 @@ export default function Toast({ message, type = 'success', duration = 3000, onCl
   };
 
   return (
-    <div className={`toast ${exiting ? 'toast-exit' : ''} toast-${type}`}>
+    <div role={type === 'error' ? 'alert' : 'status'} className={`toast ${exiting ? 'toast-exit' : ''} toast-${type}`}>
       {type === 'success' ? (
         <CheckCircle size={18} className="toast-icon toast-icon-success" />
       ) : (
         <AlertCircle size={18} className="toast-icon toast-icon-error" />
       )}
       <span className="toast-message">{message}</span>
-      <button className="toast-close" onClick={handleClose}>
+      <button aria-label="Dismiss message" className="toast-close" onClick={handleClose}>
         <X size={14} />
       </button>
     </div>

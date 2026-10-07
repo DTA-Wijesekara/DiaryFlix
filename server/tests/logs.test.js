@@ -3,6 +3,8 @@ jest.mock('../db', () => ({
   closePool: jest.fn(() => Promise.resolve()),
   getPool:   jest.fn(),
   query:     jest.fn(),
+  transaction: (fn) => fn(),
+  findAuthUser: async (id) => ({ id, email: 'test@example.com', role: id === 'admin_test' ? 'admin' : 'user', is_active: true, auth_version: 0, email_verified_at: new Date() }),
 }));
 
 const request = require('supertest');

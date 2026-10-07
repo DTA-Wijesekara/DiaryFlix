@@ -1,6 +1,7 @@
 import posthog from 'posthog-js';
 
-const key = import.meta.env.VITE_POSTHOG_KEY;
+// Recovery URLs contain bearer secrets: do not initialize analytics on these pages.
+const key = window.location.pathname === '/reset-password' ? null : import.meta.env.VITE_POSTHOG_KEY;
 const host = import.meta.env.VITE_POSTHOG_HOST || 'https://us.i.posthog.com';
 
 if (key) {
@@ -14,8 +15,8 @@ if (key) {
 }
 
 export function identifyUser(user) {
-  if (!key || !user) return;
-  posthog.identify(String(user.id), {
+  if (!key || !(user?.userId || user?.id)) return;
+  posthog.identify(String(user.userId || user.id), {
     email: user.email,
     name: user.displayName || user.email,
   });

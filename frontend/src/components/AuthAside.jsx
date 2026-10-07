@@ -1,4 +1,3 @@
-import React from 'react';
 
 const QUOTES = [
   { text: "Cinema is a mirror by which we often see ourselves.", author: "Martin Scorsese" },

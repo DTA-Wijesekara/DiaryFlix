@@ -1,7 +1,8 @@
+import { dataCache } from './dataCache';
 // DiaryFLIX — Wishlist service.
-// Backend is source of truth; localStorage is a synchronous cache for UI reads.
+// Backend is source of truth; an in-memory cache provides synchronous UI reads.
 
-import { getCurrentUserId, apiFetch, getToken } from './auth';
+import { getCurrentUserId, apiFetch, apiFetchAll, getToken } from './auth';
 
 function getKey() {
   const uid = getCurrentUserId() || 'anonymous';
@@ -9,13 +10,13 @@ function getKey() {
 }
 
 function saveCache(items) {
-  localStorage.setItem(getKey(), JSON.stringify(items));
+  dataCache.setItem(getKey(), JSON.stringify(items));
   window.dispatchEvent(new CustomEvent('cinelog:wishlist-changed'));
 }
 
 export function getAllWishlist() {
   try {
-    const data = localStorage.getItem(getKey());
+    const data = dataCache.getItem(getKey());
     return data ? JSON.parse(data) : [];
   } catch {
     return [];
@@ -26,13 +27,15 @@ export function getWishlistById(id) {
   return getAllWishlist().find(it => it.id === id) || null;
 }
 
-export async function fetchWishlistFromServer() {
+export async function fetchWishlistFromServer({ strict = false } = {}) {
   if (!getToken()) return [];
   try {
-    const items = await apiFetch('/wishlist');
+    const items = await apiFetchAll('/wishlist');
     saveCache(items);
     return items;
   } catch (e) {
+    window.dispatchEvent(new CustomEvent('cinelog:sync-error', { detail: e.message }));
+    if (strict) throw e;
     console.error('Failed to fetch wishlist from server:', e.message);
     return getAllWishlist();
   }

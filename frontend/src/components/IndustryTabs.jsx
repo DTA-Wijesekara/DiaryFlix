@@ -1,4 +1,3 @@
-import React from 'react';
 import './IndustryTabs.css';
 
 const INDUSTRIES = [

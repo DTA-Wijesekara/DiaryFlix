@@ -1,14 +1,16 @@
-import React, { useMemo } from 'react';
+import { episodeLabel } from '../services/series';
+import useLogRevision from '../hooks/useLogRevision';
+import { useMemo, useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  PlusCircle, ArrowRight, Calendar, Clock, Film, BookOpen, Flame, Sparkles, Bookmark
+  PlusCircle, ArrowRight, Calendar, Film, BookOpen, Sparkles, Bookmark
 } from 'lucide-react';
-import { getAllLogs, getStats } from '../services/storage';
+import { getAllLogs } from '../services/storage';
 import { getAllWishlist, bucketWishlist } from '../services/wishlist';
-import { getRewatchSuggestions, getAnniversaryWatches } from '../services/rewatchEngine';
+import { getAnniversaryWatches } from '../services/rewatchEngine';
+import { fetchRecommendations } from '../services/recommendations';
 import { getPosterUrl } from '../services/tmdb';
 import { useAuth } from '../context/AuthContext';
-import CalendarHeatmap from '../components/CalendarHeatmap';
 import './Dashboard.css';
 
 const WEEKDAY_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -23,14 +25,13 @@ function daysBetween(a, b) {
 }
 
 export default function Dashboard() {
+  const revision = useLogRevision();
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const logs = useMemo(() => getAllLogs(), []);
-  const stats = useMemo(() => getStats(), []);
+  const logs = useMemo(() => { void revision; return getAllLogs(); }, [revision]);
 
   const today = new Date();
-  const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
   const latestWatch = logs[0];
   const daysSinceLast = latestWatch?.dateWatched
@@ -39,12 +40,20 @@ export default function Dashboard() {
 
   const recentLogs = logs.slice(0, 5);
 
-  const rewatch = useMemo(() => {
-    const s = getRewatchSuggestions(null, 1);
-    return s[0] || null;
+  const [topPick, setTopPick] = useState(null);
+  const [topPickFallback, setTopPickFallback] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    fetchRecommendations().then(res => {
+      if (!active) return;
+      setTopPick(res.recommendations?.[0] || null);
+      setTopPickFallback(!!res.fallback);
+    });
+    return () => { active = false; };
   }, []);
 
-  const anniversaries = useMemo(() => getAnniversaryWatches(), []);
+  const anniversaries = useMemo(() => { void revision; return getAnniversaryWatches(); }, [revision]);
   const hasAnniversary = anniversaries.length > 0;
 
 
@@ -63,19 +72,19 @@ export default function Dashboard() {
             {logs.length === 0
               ? 'Your cinema diary is a blank page. Every film you log is a dated entry.'
               : daysSinceLast === 0
-                ? 'You logged a film today. Keep writing.'
+                ? 'You logged a watch today. Keep writing.'
                 : daysSinceLast === 1
                   ? 'You logged yesterday. What did you watch today?'
-                  : `It has been ${daysSinceLast} days since your last entry.`}
+                  : 'Welcome back. What have you watched lately?'}
           </p>
         </div>
 
         <div className="dash-masthead-actions">
           <Link to="/diary" className="btn btn-secondary">
-            <BookOpen size={16} /> Open diary
+            <BookOpen size={16} /> My diary
           </Link>
           <button className="btn btn-primary btn-lg" onClick={() => navigate('/log')}>
-            <PlusCircle size={18} /> New entry
+            <PlusCircle size={18} /> Log a watch
           </button>
         </div>
       </header>
@@ -87,7 +96,7 @@ export default function Dashboard() {
       {hasAnniversary && (
         <section className="dash-anniversary">
           <div className="dash-anniversary-label">
-            <Calendar size={14} /> On this day in cinema
+            <Calendar size={14} /> On this day
           </div>
           <div className="dash-anniversary-items">
             {anniversaries.slice(0, 3).map(a => (
@@ -101,51 +110,16 @@ export default function Dashboard() {
         </section>
       )}
 
-      {/* Top row — stat strip (restrained, editorial) */}
-      <section className="dash-stats">
-        <StatBlock
-          label="Entries"
-          value={stats?.totalWatched || 0}
-          hint="films in diary"
-        />
-        <StatBlock
-          label="Hours"
-          value={Number(stats?.totalHoursWatched || 0).toFixed(0)}
-          hint="of cinema"
-        />
-        <StatBlock
-          label="Avg rating"
-          value={stats?.avgRating || '—'}
-          hint="out of 10"
-        />
-        <StatBlock
-          label="Longest streak"
-          value={stats?.maxStreak || 0}
-          hint={stats?.maxStreak === 1 ? 'day' : 'days'}
-        />
-      </section>
-
-      {/* Calendar + recent entries side-by-side */}
       <section className="dash-grid">
-        <div className="dash-heatmap">
-          <header className="dash-section-head">
-            <div>
-              <span className="eyebrow">Watch activity</span>
-              <h2 className="dash-section-title">The last 12 months</h2>
-            </div>
-          </header>
-          <CalendarHeatmap logs={logs} />
-        </div>
-
         <div className="dash-recent">
           <header className="dash-section-head">
             <div>
-              <span className="eyebrow">Recent pages</span>
-              <h2 className="dash-section-title">Last five entries</h2>
+
+              <h2 className="dash-section-title">Recently watched</h2>
             </div>
             {logs.length > 5 && (
               <Link to="/diary" className="dash-section-link">
-                Full diary <ArrowRight size={14} />
+                View diary <ArrowRight size={14} />
               </Link>
             )}
           </header>
@@ -157,7 +131,7 @@ export default function Dashboard() {
                   <Link to={`/movie/${log.id}`} className="dash-recent-item unstyled-link">
                     <DateStamp dateString={log.dateWatched} />
                     <div className="dash-recent-body">
-                      <span className="dash-recent-title">{log.title}</span>
+                      <span className="dash-recent-title">{log.title}{log.type === 'tv_series' && <small style={{display:'block'}}>{episodeLabel(log)}</small>}</span>
                       <span className="dash-recent-meta">
                         {log.year && <span>{log.year}</span>}
                         {log.director && <span>· {log.director}</span>}
@@ -181,14 +155,14 @@ export default function Dashboard() {
         </div>
       </section>
 
-      {/* Bottom band — rewatch suggestion */}
-      {rewatch && (
+      {/* Bottom band — top recommendation from the Discover graph */}
+      {topPick && (
         <section className="dash-rewatch">
           <div className="dash-rewatch-poster-wrap">
-            {(rewatch.posterUrl || rewatch.posterPath) ? (
+            {topPick.posterPath ? (
               <img
-                src={rewatch.posterUrl || getPosterUrl(rewatch.posterPath, 'w342')}
-                alt={rewatch.title}
+                src={getPosterUrl(topPick.posterPath, 'w342')}
+                alt={topPick.title}
                 className="dash-rewatch-poster"
               />
             ) : (
@@ -198,15 +172,21 @@ export default function Dashboard() {
             )}
           </div>
           <div className="dash-rewatch-body">
-            <span className="eyebrow"><Sparkles size={12} /> Perhaps tonight</span>
-            <h3 className="dash-rewatch-title">{rewatch.title}</h3>
-            <p className="dash-rewatch-reason">{rewatch.reason}</p>
+            <span className="eyebrow"><Sparkles size={12} /> Recommended for you</span>
+            <h3 className="dash-rewatch-title">{topPick.title}</h3>
+            <p className="dash-rewatch-reason">
+              {topPickFallback
+                ? 'A popular pick across DiaryFLIX.'
+                : topPick.becauseTitle
+                  ? `Because you watched ${topPick.becauseTitle}.`
+                  : 'Picked from your watch history.'}
+            </p>
             <div className="dash-rewatch-actions">
-              <button className="btn btn-accent" onClick={() => navigate(`/movie/${rewatch.id}`)}>
-                Open entry
-              </button>
+              <Link to="/discover" className="btn btn-accent">
+                See all picks
+              </Link>
               <span className="mono dash-rewatch-meta">
-                {rewatch.rating}/10 · {rewatch.daysSinceWatch} days ago
+                {topPick.year || 'Selected for you'}
               </span>
             </div>
           </div>
@@ -223,11 +203,11 @@ function WishlistDueBanner() {
 
   let label;
   if (dueToday.length > 0 && overdue.length > 0) {
-    label = `On your wishlist for today + ${overdue.length} overdue`;
+    label = `On your watchlist for today + ${overdue.length} previously planned`;
   } else if (dueToday.length > 0) {
-    label = 'On your wishlist for today';
+    label = 'On your watchlist for today';
   } else {
-    label = `${overdue.length} overdue on your wishlist`;
+    label = `${overdue.length} previously planned films`;
   }
 
   const items = [...dueToday, ...overdue].slice(0, 4);
@@ -248,19 +228,9 @@ function WishlistDueBanner() {
         ))}
       </ul>
       <Link to="/wishlist" className="dash-section-link">
-        Open wishlist <ArrowRight size={14} />
+        Open watchlist <ArrowRight size={14} />
       </Link>
     </section>
-  );
-}
-
-function StatBlock({ label, value, hint }) {
-  return (
-    <div className="dash-stat">
-      <span className="dash-stat-label">{label}</span>
-      <span className="dash-stat-value mono">{value}</span>
-      <span className="dash-stat-hint">{hint}</span>
-    </div>
   );
 }
 

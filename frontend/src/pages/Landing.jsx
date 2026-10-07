@@ -1,4 +1,3 @@
-import React from 'react';
 import { Link } from 'react-router-dom';
 import { Film, BookOpen, BarChart2, Star, ArrowRight } from 'lucide-react';
 import './Landing.css';

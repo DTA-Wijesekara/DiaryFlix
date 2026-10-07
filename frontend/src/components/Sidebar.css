@@ -493,3 +493,8 @@
   .mobile-nav { display: flex; }
   .mobile-sheet-overlay { display: flex; }
 }
+
+.sidebar-link[href="/log"] { background:var(--blue); color:white; margin:12px 0; min-height:44px; }
+.sidebar-link[href="/log"] svg { color:white; }
+.sidebar-link[href="/log"]::before { display:none; }
+.mobile-nav-link[href="/log"] { color:var(--blue); font-weight:600; }

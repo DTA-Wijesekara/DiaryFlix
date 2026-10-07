@@ -9,7 +9,7 @@ const rateLimit = require('express-rate-limit');
 const { OAuth2Client } = require('google-auth-library');
 
 const config = require('../config');
-const { query } = require('../db');
+const { query, transaction } = require('../db');
 const { send, buildPasswordResetEmail, buildOAuthOnlyEmail } = require('../email');
 
 const googleClient = config.google.clientId ? new OAuth2Client(config.google.clientId) : null;
@@ -20,11 +20,14 @@ const {
   assertString,
   assertEmail,
   assertPassword,
+  assertCurrentPassword,
 } = require('../middleware');
 
+const { PostgresRateStore } = require('../lib/postgresRateStore');
 const router = express.Router();
 
 const authLimiter = rateLimit({
+  ...(config.isProd ? { store: new PostgresRateStore('auth') } : {}),
   windowMs: config.rateLimits.auth.windowMs,
   max: config.rateLimits.auth.max,
   standardHeaders: true,
@@ -34,7 +37,7 @@ const authLimiter = rateLimit({
 
 function signToken(user) {
   return jwt.sign(
-    { id: user.id, email: user.email, role: user.role },
+    { id: user.id, email: user.email, role: user.role, version: user.auth_version },
     config.jwtSecret,
     { expiresIn: config.jwtExpiresIn }
   );
@@ -77,15 +80,15 @@ router.post('/register', authLimiter, asyncHandler(async (req, res) => {
     VALUES (@id, @email, @displayName, @hash, @salt, @avatar, TRUE, 'user', NOW(), NOW())
   `, { id, email, displayName, hash, salt, avatar: initial });
 
-  const user = { id, email, displayName, role: 'user', avatar: initial, isActive: true };
-  res.status(201).json({ token: signToken(user), user });
+  await sendRecovery({ id, email, display_name: displayName });
+  res.status(201).json({ verificationRequired: true, message: 'Check your email to verify ownership and choose your password. Request another link from Forgot password if needed.' });
 }));
 
 // ---- POST /login ----
 
 router.post('/login', authLimiter, asyncHandler(async (req, res) => {
   const email    = assertEmail(req.body.email);
-  const password = assertString(req.body.password, 'password', { min: 1, max: 512 });
+  const password = assertCurrentPassword(req.body.password);
 
   const result = await query('SELECT * FROM users WHERE email = @email', { email });
   const row    = result.rows[0];
@@ -96,9 +99,10 @@ router.post('/login', authLimiter, asyncHandler(async (req, res) => {
   if (!row || !valid) throw new HttpError(401, 'Invalid email or password');
   if (!row.is_active)  throw new HttpError(403, 'Account is deactivated');
 
+  if (!row.email_verified_at) throw new HttpError(403, 'Verify your email using Forgot password before signing in', 'EMAIL_UNVERIFIED');
   await query('UPDATE users SET last_login = NOW() WHERE id = @id', { id: row.id });
 
-  res.json({ token: signToken(toPublicUser(row)), user: toPublicUser(row) });
+  res.json({ token: signToken(row), user: toPublicUser(row) });
 }));
 
 // ---- GET /me ----
@@ -137,28 +141,22 @@ router.put('/me', authenticateJWT, asyncHandler(async (req, res) => {
 // ---- POST /change-password ----
 
 router.post('/change-password', authenticateJWT, asyncHandler(async (req, res) => {
-  const currentPassword = assertString(req.body.currentPassword, 'currentPassword', { min: 1, max: 512 });
+  const currentPassword = assertCurrentPassword(req.body.currentPassword);
   const newPassword     = assertPassword(req.body.newPassword);
 
   if (currentPassword === newPassword) {
     throw new HttpError(400, 'New password must be different from current password');
   }
 
-  const result = await query('SELECT password_hash FROM users WHERE id = @id', { id: req.user.id });
-  if (result.rows.length === 0) throw new HttpError(404, 'User not found');
-
-  const valid = await bcrypt.compare(currentPassword, result.rows[0].password_hash);
-  if (!valid) throw new HttpError(401, 'Current password is incorrect');
-
-  const salt = await bcrypt.genSalt(config.bcryptRounds);
-  const hash = await bcrypt.hash(newPassword, salt);
-
-  await query(
-    'UPDATE users SET password_hash = @hash, salt = @salt WHERE id = @id',
-    { id: req.user.id, hash, salt }
-  );
-
-  res.json({ success: true });
+  await transaction(async () => {
+    const row = (await query('SELECT * FROM users WHERE id = @id FOR UPDATE', { id: req.user.id })).rows[0];
+    if (!row || !row.is_active || row.auth_version !== req.user.version) throw new HttpError(401, 'Please sign in again', 'SESSION_REVOKED');
+    if (!row.password_hash || !await bcrypt.compare(currentPassword, row.password_hash)) throw new HttpError(401, 'Current password is incorrect');
+    const hash = await bcrypt.hash(newPassword, config.bcryptRounds);
+    await query('UPDATE users SET password_hash = @hash, salt = NULL, auth_version = auth_version + 1 WHERE id = @id', { id: row.id, hash });
+    await query('DELETE FROM password_reset_tokens WHERE user_id = @id', { id: row.id });
+  });
+  res.json({ success: true, signInRequired: true });
 }));
 
 // ---- POST /google ----
@@ -199,8 +197,7 @@ router.post('/google', authLimiter, asyncHandler(async (req, res) => {
   if (!row) {
     row = (await query('SELECT * FROM users WHERE email = @email', { email })).rows[0];
     if (row) {
-      await query('UPDATE users SET google_id = @googleId WHERE id = @id', { googleId, id: row.id });
-      row.google_id = googleId;
+      throw new HttpError(409, 'An account already uses this email. Recover it with Forgot password, then link Google from Settings.', 'LINK_REQUIRED');
     }
   }
 
@@ -208,16 +205,21 @@ router.post('/google', authLimiter, asyncHandler(async (req, res) => {
   if (!row) {
     const id = newId('user');
     await query(`
-      INSERT INTO users (id, email, display_name, google_id, avatar, is_active, role, created_at, last_login)
-      VALUES (@id, @email, @displayName, @googleId, @avatar, TRUE, 'user', NOW(), NOW())
+      INSERT INTO users (id, email, display_name, google_id, avatar, is_active, role, created_at, last_login, email_verified_at)
+      VALUES (@id, @email, @displayName, @googleId, @avatar, TRUE, 'user', NOW(), NOW(), NOW())
     `, { id, email, displayName: name, googleId, avatar: initial });
     row = (await query('SELECT * FROM users WHERE id = @id', { id })).rows[0];
   } else {
+    if (row.password_hash && !row.email_verified_at) throw new HttpError(403, 'Recover this account using Forgot password before signing in', 'EMAIL_UNVERIFIED');
+    if (!row.password_hash && !row.email_verified_at) {
+      await query('UPDATE users SET email_verified_at = NOW() WHERE id = @id', { id: row.id });
+      row.email_verified_at = new Date();
+    }
     if (!row.is_active) throw new HttpError(403, 'Account is deactivated');
     await query('UPDATE users SET last_login = NOW() WHERE id = @id', { id: row.id });
   }
 
-  res.json({ token: signToken(toPublicUser(row)), user: toPublicUser(row) });
+  res.json({ token: signToken(row), user: toPublicUser(row) });
 }));
 
 // ---- POST /forgot-password ----
@@ -240,33 +242,20 @@ router.post('/forgot-password', authLimiter, asyncHandler(async (req, res) => {
     return res.json(genericResponse);
   }
 
-  // Standard reset flow: generate token, store hash, email the link.
-  const rawToken  = crypto.randomBytes(32).toString('hex');
-  const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
-  const ttlMin    = config.passwordReset.tokenTtlMinutes;
-  const expiresAt = new Date(Date.now() + ttlMin * 60 * 1000);
-
-  await query(`
-    INSERT INTO password_reset_tokens (token_hash, user_id, expires_at)
-    VALUES (@tokenHash, @userId, @expiresAt)
-  `, { tokenHash, userId: row.id, expiresAt });
-
-  const resetUrl = `${config.appUrl.replace(/\/$/, '')}/reset-password?token=${rawToken}`;
-  const tpl = buildPasswordResetEmail({
-    displayName: row.display_name,
-    resetUrl,
-    ttlMinutes: ttlMin,
-  });
-
-  try {
-    await send({ to: email, ...tpl });
-  } catch (e) {
-    console.error('[email] send failed:', e.message);
-    // Still return the generic success so we don't leak SMTP issues to clients.
-  }
-
+  await sendRecovery(row);
   res.json(genericResponse);
 }));
+
+async function sendRecovery(row) {
+  const rawToken = crypto.randomBytes(32).toString('hex');
+  const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+  const expiresAt = new Date(Date.now() + config.passwordReset.tokenTtlMinutes * 60000);
+  await query('INSERT INTO password_reset_tokens (token_hash, user_id, expires_at) VALUES (@tokenHash, @userId, @expiresAt)', { tokenHash, userId: row.id, expiresAt });
+  const resetUrl = config.appUrl.replace(/\/$/, '') + '/reset-password?token=' + rawToken;
+  const tpl = buildPasswordResetEmail({ displayName: row.display_name, resetUrl, ttlMinutes: config.passwordReset.tokenTtlMinutes });
+  try { await send({ to: row.email, ...tpl }); }
+  catch (error) { console.error('[email] Recovery delivery failed'); }
+}
 
 // ---- POST /reset-password ----
 
@@ -276,38 +265,38 @@ router.post('/reset-password', authLimiter, asyncHandler(async (req, res) => {
 
   const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
 
-  const tokenRow = (await query(
-    'SELECT * FROM password_reset_tokens WHERE token_hash = @tokenHash',
-    { tokenHash }
-  )).rows[0];
+  // Lock the user first so different outstanding tokens serialize without deadlocks.
+  await transaction(async () => {
+    const candidate = (await query('SELECT user_id FROM password_reset_tokens WHERE token_hash = @tokenHash', { tokenHash })).rows[0];
+    if (!candidate) throw new HttpError(400, 'Invalid or expired reset link');
+    const user = (await query('SELECT * FROM users WHERE id = @id FOR UPDATE', { id: candidate.user_id })).rows[0];
+    if (!user || !user.is_active) throw new HttpError(400, 'Account is no longer available');
+    const consumed = await query('DELETE FROM password_reset_tokens WHERE token_hash = @tokenHash AND used_at IS NULL AND expires_at > NOW() RETURNING user_id', { tokenHash });
+    if (!consumed.rows.length) throw new HttpError(400, 'Invalid or expired reset link');
+    const hash = await bcrypt.hash(newPassword, config.bcryptRounds);
+    await query(
+      'UPDATE users SET password_hash = @hash, salt = NULL, auth_version = auth_version + 1, google_id = CASE WHEN email_verified_at IS NULL THEN NULL ELSE google_id END, email_verified_at = NOW() WHERE id = @id',
+      { hash, id: user.id }
+    );
+    await query('DELETE FROM password_reset_tokens WHERE user_id = @id', { id: user.id });
+  });
+  res.json({ success: true });
+}));
 
-  if (!tokenRow) throw new HttpError(400, 'This reset link is invalid or has already been used. Request a new one.');
-  if (tokenRow.used_at) throw new HttpError(400, 'This reset link has already been used. Request a new one.');
-  if (new Date(tokenRow.expires_at) < new Date()) {
-    throw new HttpError(400, 'This reset link has expired. Request a new one.');
-  }
-
-  const userRow = (await query('SELECT * FROM users WHERE id = @id', { id: tokenRow.user_id })).rows[0];
-  if (!userRow || !userRow.is_active) throw new HttpError(400, 'Account is no longer available');
-
-  const salt = await bcrypt.genSalt(config.bcryptRounds);
-  const hash = await bcrypt.hash(newPassword, salt);
-
-  await query(
-    'UPDATE users SET password_hash = @hash, salt = @salt WHERE id = @id',
-    { hash, salt, id: userRow.id }
-  );
-
-  // Mark this token used and invalidate any other outstanding tokens for the user.
-  await query(
-    'UPDATE password_reset_tokens SET used_at = NOW() WHERE token_hash = @tokenHash',
-    { tokenHash }
-  );
-  await query(
-    'DELETE FROM password_reset_tokens WHERE user_id = @userId AND used_at IS NULL',
-    { userId: userRow.id }
-  );
-
+router.post('/link-google', authLimiter, authenticateJWT, asyncHandler(async (req, res) => {
+  if (!googleClient) throw new HttpError(503, 'Google sign-in is not configured');
+  const password = assertCurrentPassword(req.body.currentPassword);
+  const credential = assertString(req.body.credential, 'credential', { min: 10, max: 4096 });
+  let payload;
+  try { payload = (await googleClient.verifyIdToken({ idToken: credential, audience: config.google.clientId })).getPayload(); }
+  catch { throw new HttpError(401, 'Could not verify Google credential'); }
+  if (!payload?.email_verified || String(payload.email).toLowerCase() !== req.user.email) throw new HttpError(400, 'Use the Google account with your account email');
+  await transaction(async () => {
+    const user = (await query('SELECT * FROM users WHERE id = @id FOR UPDATE', { id: req.user.id })).rows[0];
+    if (!user || !user.is_active || user.auth_version !== req.user.version) throw new HttpError(401, 'Please sign in again', 'SESSION_REVOKED');
+    if (!user.password_hash || !await bcrypt.compare(password, user.password_hash)) throw new HttpError(401, 'Current password is incorrect');
+    await query('UPDATE users SET google_id = @googleId WHERE id = @id', { googleId: payload.sub, id: user.id });
+  });
   res.json({ success: true });
 }));
 

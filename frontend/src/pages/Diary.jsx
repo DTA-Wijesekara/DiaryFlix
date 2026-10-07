@@ -1,4 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import { episodeLabel } from '../services/series';
+import DiaryNavigation from '../components/DiaryNavigation';
+import useLogRevision from '../hooks/useLogRevision';
+import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { BookOpen, ChevronLeft, ChevronRight, PlusCircle, Star, Film, Tv } from 'lucide-react';
 import { getAllLogs } from '../services/storage';
@@ -19,6 +22,7 @@ const MOOD_GLYPH = {
 
 function formatDayKey(dateString) {
   if (!dateString) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) return dateString;
   const d = new Date(dateString);
   if (Number.isNaN(d.getTime())) return null;
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -38,11 +42,16 @@ function groupLogsByDay(logs) {
 }
 
 export default function Diary() {
+  const revision = useLogRevision();
   const navigate = useNavigate();
-  const logs = useMemo(() => getAllLogs(), []);
+  const logs = useMemo(() => { void revision; return getAllLogs(); }, [revision]);
   const groups = useMemo(() => groupLogsByDay(logs), [logs]);
 
   const today = new Date();
+  const currentYear = today.getFullYear();
+  const [query, setQuery] = useState('');
+  const [contentType, setContentType] = useState('all');
+  const [allDates, setAllDates] = useState(false);
   const [viewMonth, setViewMonth] = useState({
     year: today.getFullYear(),
     month: today.getMonth(),
@@ -51,17 +60,13 @@ export default function Diary() {
   const years = useMemo(() => {
     const set = new Set();
     groups.forEach(g => set.add(g.date.getFullYear()));
-    set.add(today.getFullYear());
+    set.add(currentYear);
     return Array.from(set).sort((a, b) => b - a);
-  }, [groups, today]);
+  }, [groups, currentYear]);
 
   const filteredGroups = useMemo(() => {
-    if (!viewMonth) return groups;
-    return groups.filter(g =>
-      g.date.getFullYear() === viewMonth.year &&
-      g.date.getMonth() === viewMonth.month
-    );
-  }, [groups, viewMonth]);
+    return groups.filter(g => allDates || (g.date.getFullYear() === viewMonth.year && g.date.getMonth() === viewMonth.month)).map(g => ({ ...g, items: g.items.filter(log => (contentType === 'all' || log.type === contentType) && `${log.title} ${log.notes || ''}`.toLowerCase().includes(query.toLowerCase())) })).filter(g => g.items.length);
+  }, [groups, viewMonth, allDates, query, contentType]);
 
   const entriesThisMonth = filteredGroups.reduce((sum, g) => sum + g.items.length, 0);
   const daysWithEntry = filteredGroups.length;
@@ -79,59 +84,48 @@ export default function Diary() {
     <div className="diary fade-in" id="diary-page">
       <div className="page-header diary-header">
         <div>
-          <span className="eyebrow">The Diary</span>
-          <h1>
-            <span className="diary-month-label">{MONTHS[viewMonth.month]}</span>
-            <span className="diary-year-label">{viewMonth.year}</span>
-          </h1>
+
+          <h1>My diary</h1>
           <p>
             {entriesThisMonth > 0
-              ? <>{entriesThisMonth} {entriesThisMonth === 1 ? 'film' : 'films'} across {daysWithEntry} {daysWithEntry === 1 ? 'day' : 'days'} this month.</>
-              : <>No entries yet this month. Log a watch to begin writing the page.</>}
+              ? <>{entriesThisMonth} {entriesThisMonth === 1 ? 'film' : 'films'} across {daysWithEntry} {daysWithEntry === 1 ? 'day' : 'days'} {allDates ? 'in your diary' : 'this month'}.</>
+              : <>Find a past watch or add something new.</>}
           </p>
         </div>
         <button className="btn btn-primary btn-lg" onClick={() => navigate('/log')}>
           <PlusCircle size={18} />
-          New entry
+          Log a watch
         </button>
       </div>
 
-      <div className="diary-monthbar">
+      <DiaryNavigation />
+      <label>Show <select className="input" aria-label="Content type" value={contentType} onChange={e => setContentType(e.target.value)}><option value="all">All</option><option value="movie">Films</option><option value="tv_series">TV series</option></select></label>
+      <div className="diary-searchbar">
+        <input className="input" aria-label="Search diary" placeholder="Search films or your notes" value={query} onChange={e => setQuery(e.target.value)} />
+        <button className="btn btn-secondary" aria-pressed={allDates} onClick={() => setAllDates(!allDates)}>{allDates ? 'Choose month' : 'All dates'}</button>
+      </div>
+      {!allDates && <div className="diary-monthbar">
         <button className="diary-nav-btn" onClick={() => stepMonth(-1)} aria-label="Previous month">
           <ChevronLeft size={18} />
         </button>
-        <div className="diary-year-scroll">
-          {years.map(y => (
-            <button
-              key={y}
-              className={`diary-year-pill ${y === viewMonth.year ? 'active' : ''}`}
-              onClick={() => goToMonth(y, viewMonth.month)}
-            >
-              {y}
-            </button>
-          ))}
-        </div>
-        <div className="diary-month-scroll">
-          {MONTHS.map((m, i) => (
-            <button
-              key={m}
-              className={`diary-month-pill ${i === viewMonth.month ? 'active' : ''}`}
-              onClick={() => goToMonth(viewMonth.year, i)}
-            >
-              {m.slice(0, 3)}
-            </button>
-          ))}
+        <div className="diary-month-selectors">
+          <select className="select" aria-label="Month" value={viewMonth.month} onChange={e => goToMonth(viewMonth.year, Number(e.target.value))}>
+            {MONTHS.map((month, i) => <option key={month} value={i}>{month}</option>)}
+          </select>
+          <select className="select" aria-label="Year" value={viewMonth.year} onChange={e => goToMonth(Number(e.target.value), viewMonth.month)}>
+            {[...new Set([...years, viewMonth.year])].sort((a,b) => b-a).map(year => <option key={year}>{year}</option>)}
+          </select>
         </div>
         <button className="diary-nav-btn" onClick={() => stepMonth(1)} aria-label="Next month">
           <ChevronRight size={18} />
         </button>
-      </div>
+      </div>}
 
       {filteredGroups.length === 0 ? (
         <div className="empty-state">
           <div className="empty-state-icon"><BookOpen size={22} /></div>
-          <h3>A blank page in {MONTHS[viewMonth.month]}</h3>
-          <p>Every screening you log in this month will appear here, dated and bound together like pages in a journal.</p>
+          <h3>{query ? 'No matching watches' : 'No watches here yet'}</h3>
+          <p>Try another month or search, or log something you watched.</p>
           <button className="btn btn-accent" onClick={() => navigate('/log')}>
             <PlusCircle size={16} /> Log a film
           </button>
@@ -199,6 +193,7 @@ function DiaryEntry({ log }) {
         <div className="diary-entry-head">
           <h3 className="diary-entry-title">
             {log.title}
+            {log.type === 'tv_series' && <small style={{display: 'block'}}>{episodeLabel(log)}</small>}
             {log.year && <span className="diary-entry-year">{log.year}</span>}
           </h3>
           {log.rating > 0 && (
@@ -210,11 +205,11 @@ function DiaryEntry({ log }) {
 
         <div className="diary-entry-meta">
           {log.director && <span>dir. {log.director}</span>}
-          {log.runtime > 0 && <span>{log.runtime} min</span>}
+          {(log.watchedMinutes ?? (log.type === 'tv_series' ? 0 : log.runtime)) > 0 && <span>{log.watchedMinutes ?? log.runtime} min</span>}
           {log.platform && <span>on {log.platform}</span>}
           {log.watchedWith && <span>with {log.watchedWith}</span>}
           {log.industry && <span className="diary-entry-ind">{log.industry}</span>}
-          {log.rewatchCount > 0 && <span>rewatch #{log.rewatchCount}</span>}
+          {log.rewatchCount > 0 && <span>watched {log.rewatchCount + 1} times</span>}
         </div>
 
         {log.moodBefore && (

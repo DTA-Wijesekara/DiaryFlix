@@ -238,6 +238,7 @@
 
 .auth-input-icon {
   position: absolute;
+  display: flex;
   left: 14px;
   bottom: 13px;
   color: var(--ink-30);
@@ -245,14 +246,14 @@
   z-index: 1;
 }
 
-.auth-input {
+.input.auth-input {
   padding-left: 42px;
   padding-right: 14px;
   font-size: 0.95rem;
 }
 
 /* When no left icon is used, reset the padding */
-.auth-input.no-icon {
+.input.auth-input.no-icon {
   padding-left: 14px;
 }
 
@@ -356,3 +357,6 @@
   .auth-main { padding: var(--space-5) var(--space-4); }
   .auth-card-header h2 { font-size: 1.6rem; }
 }
+
+.auth-inline-error { padding:16px; margin-bottom:20px; border:1px solid var(--rule-strong); border-left:3px solid var(--danger); border-radius:8px; }
+.auth-inline-error p { margin-bottom:8px; }

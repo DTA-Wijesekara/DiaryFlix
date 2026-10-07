@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Search, Film, Tv, X } from 'lucide-react';
 import { searchMovies, getPosterUrl, hasTMDBKey } from '../services/tmdb';
 import './MovieSearch.css';
@@ -13,22 +13,25 @@ export default function MovieSearch({ onSelect, id = 'movie-search' }) {
 
   useEffect(() => {
     if (!query.trim() || !hasTMDBKey()) {
+// eslint-disable-next-line react-hooks/set-state-in-effect -- Clear remote search results when the query is emptied.
       setResults([]);
       setShowDropdown(false);
       return;
     }
 
+    let active = true;
     setLoading(true);
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
     debounceRef.current = setTimeout(async () => {
       const data = await searchMovies(query);
+      if (!active) return;
       setResults(data.results);
       setShowDropdown(true);
       setLoading(false);
     }, 400);
 
-    return () => clearTimeout(debounceRef.current);
+    return () => { active = false; clearTimeout(debounceRef.current); };
   }, [query]);
 
   // Close dropdown on outside click
@@ -58,7 +61,7 @@ export default function MovieSearch({ onSelect, id = 'movie-search' }) {
     return (
       <div className="movie-search-no-key" id={id}>
         <Film size={18} />
-        <span>Set your TMDB API key in <strong>Settings</strong> to enable movie search with auto-fill</span>
+        <span>Search is unavailable. You can still add a film manually.</span>
       </div>
     );
   }
@@ -70,13 +73,13 @@ export default function MovieSearch({ onSelect, id = 'movie-search' }) {
         <input
           type="text"
           className="input movie-search-input"
-          placeholder="Search for a movie or TV series..."
+          aria-label="Search for a movie or TV series" placeholder="Search for a movie or TV series..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => results.length > 0 && setShowDropdown(true)}
         />
         {query && (
-          <button type="button" className="movie-search-clear" onClick={handleClear}>
+          <button type="button" aria-label="Clear search" className="movie-search-clear" onClick={handleClear}>
             <X size={16} />
           </button>
         )}
@@ -87,7 +90,7 @@ export default function MovieSearch({ onSelect, id = 'movie-search' }) {
         <div className="movie-search-dropdown">
           {results.map(movie => (
             <button
-              key={movie.tmdbId}
+              key={`${movie.type}:${movie.tmdbId}`}
               type="button"
               className="movie-search-result"
               onClick={() => handleSelect(movie)}

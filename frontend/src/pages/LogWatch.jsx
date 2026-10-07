@@ -1,4 +1,5 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import EpisodePicker from '../components/EpisodePicker';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { Save, Film, Tv, Users, Tag, AlertCircle, RefreshCw, Bookmark } from 'lucide-react';
 import { addLog, getAllLogs } from '../services/storage';
@@ -30,7 +31,8 @@ const PLATFORM_OPTIONS = [
 ];
 
 function buildInitialForm(seed) {
-  const today = new Date().toISOString().split('T')[0];
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   if (!seed) {
     return {
       title: '', type: 'movie', year: '', tmdbId: null,
@@ -42,6 +44,9 @@ function buildInitialForm(seed) {
     };
   }
   return {
+    movieId: seed.movieId || null,
+    episode: seed.episode || (seed.episodeId ? {seasonNumber: seed.seasonNumber, episodeNumber: seed.episodeNumber, title: seed.episodeTitle || '', runtime: seed.episodeRuntime, airDate: seed.episodeAirDate} : null),
+    allowRewatch: seed.allowRewatch ?? !!seed.episodeId,
     title: seed.title || '',
     type: seed.type || 'movie',
     year: seed.year || '',
@@ -80,12 +85,16 @@ export default function LogWatch() {
   const wishlistId = searchParams.get('wishlistId');
   const wishlistSeed = wishlistId ? getWishlistById(wishlistId) : null;
 
+  const selection = useRef(0);
+  const submission = useRef(null);
+  const [manual, setManual] = useState(!hasTMDBKey());
+  const [dirty, setDirty] = useState(false);
   const [toast, setToast] = useState(null);
   const [duplicateLogId, setDuplicateLogId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(() => buildInitialForm(rewatchOf || wishlistSeed));
 
-  // Fill in cast/director/runtime from TMDB when seeded from a wishlist item that has a tmdbId.
+  // Fill in cast/director/runtime from TMDB when seeded from a watchlist item that has a tmdbId.
   useEffect(() => {
     if (!wishlistSeed?.tmdbId || rewatchOf) return;
     let cancelled = false;
@@ -105,12 +114,28 @@ export default function LogWatch() {
     return () => { cancelled = true; };
   }, [wishlistSeed, rewatchOf]);
 
-  const updateField = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = e => { e.preventDefault(); e.returnValue = ''; };
+    const leave = e => {
+      const link = e.target.closest('a[href]');
+      if (link && !e.defaultPrevented && !window.confirm('Leave without saving this watch?')) {
+        e.preventDefault(); e.stopPropagation();
+      }
+    };
+    window.addEventListener('beforeunload', warn);
+    document.addEventListener('click', leave, true);
+    return () => { window.removeEventListener('beforeunload', warn); document.removeEventListener('click', leave, true); };
+  }, [dirty]);
+
+  const updateField = (field, value) => { setDirty(true); setForm(prev => ({ ...prev, [field]: value })); };
 
   const handleMovieSelect = useCallback(async (movie) => {
+    const request = ++selection.current;
+    setDirty(true);
     // Duplicate detection — only relevant when NOT a Watch Again flow
     if (!rewatchOf && movie.tmdbId) {
-      const existing = getAllLogs().find(l => l.tmdbId === movie.tmdbId);
+      const existing = getAllLogs().find(l => l.tmdbId === movie.tmdbId && l.type === movie.type);
       setDuplicateLogId(existing ? existing.id : null);
     } else {
       setDuplicateLogId(null);
@@ -118,6 +143,8 @@ export default function LogWatch() {
 
     setForm(prev => ({
       ...prev,
+      movieId: null, episode: null, allowRewatch: false,
+      actors: [''], actresses: [''], director: '', genres: [], category: '', runtime: 0, industry: '',
       title: movie.title,
       type: movie.type || 'movie',
       year: movie.year,
@@ -130,7 +157,7 @@ export default function LogWatch() {
 
     if (movie.tmdbId) {
       const details = await getMovieDetails(movie.tmdbId, movie.type);
-      if (details) {
+      if (details && request === selection.current) {
         setForm(prev => ({
           ...prev,
           actors: details.actors.length > 0 ? details.actors : [''],
@@ -175,16 +202,21 @@ export default function LogWatch() {
       favouriteQuotes: form.favouriteQuotes.filter(q => q.trim()),
     };
 
+    if (entry.type !== 'tv_series') delete entry.episode;
+    const signature = JSON.stringify(entry);
+    if (submission.current?.signature !== signature) submission.current = { signature, id: crypto.randomUUID() };
+    entry.requestId = submission.current.id;
     setSaving(true);
     try {
       await addLog(entry);
+      setDirty(false);
       track('film_logged', {
         title: entry.title,
         rating: entry.rating,
         industry: entry.industry,
         from_wishlist: !!wishlistId,
       });
-      if (wishlistId) {
+      if (wishlistId && !entry.episode) {
         try { await deleteWishlist(wishlistId); } catch { /* non-fatal */ }
       }
       setToast({ message: `"${form.title}" saved to your diary`, type: 'success' });
@@ -195,25 +227,25 @@ export default function LogWatch() {
     }
   };
 
-  const submitLabel = rewatchOf ? 'Log Rewatch' : 'Save entry';
+  const submitLabel = 'Save watch';
 
   return (
     <div className="log-watch fade-in" id="log-watch-page">
       <div className="page-header">
         {rewatchOf ? (
           <>
-            <h1>Log a Rewatch 🔁</h1>
+            <h1>Log another watch</h1>
             <p>Recording a new watch of <strong>{rewatchOf.title}</strong> — this will be a separate diary entry.</p>
           </>
         ) : wishlistSeed ? (
           <>
-            <h1>Log a Watch 🎬</h1>
-            <p>Logging <strong>{wishlistSeed.title}</strong> from your wishlist — fill in the details below.</p>
+            <h1>Log a watch</h1>
+            <p>Logging <strong>{wishlistSeed.title}</strong> from your watchlist — fill in the details below.</p>
           </>
         ) : (
           <>
-            <h1>Log a Watch 🎬</h1>
-            <p>Record what you watched, how you felt, and what you loved.</p>
+            <h1>Log a watch</h1>
+            <p>Choose a film or series, add the date, and save. Everything else is optional.</p>
           </>
         )}
       </div>
@@ -221,29 +253,36 @@ export default function LogWatch() {
       {rewatchOf && (
         <div className="log-rewatch-banner">
           <RefreshCw size={15} />
-          Rewatch of <strong>{rewatchOf.title}</strong> — fill in today's date, mood, and notes.
-          The original entry's rewatch count will update automatically.
+          <span>Adding a new watch of <strong>{rewatchOf.title}</strong>. Your earlier entries stay in your diary.</span>
         </div>
       )}
 
       {wishlistSeed && !rewatchOf && (
         <div className="log-rewatch-banner">
           <Bookmark size={15} />
-          From your wishlist — saving this entry will remove <strong>{wishlistSeed.title}</strong> from your wishlist.
+          <span>From your watchlist — saving a film or general series entry removes <strong>{wishlistSeed.title}</strong> from your watchlist. Episode entries keep it there.</span>
         </div>
       )}
 
-      <form className="log-form" onSubmit={handleSubmit}>
+      <form className="log-form" onSubmit={handleSubmit} onChange={() => setDirty(true)}>
         {/* Movie / Search */}
-        <div className="log-section glass-card-static" style={{ position: 'relative', zIndex: 10 }}>
-          <h3 className="log-section-title"><Film size={18} /> Movie / TV Series</h3>
+        {(!rewatchOf && !wishlistSeed || form.posterUrl) && <div className="log-section glass-card-static" style={{ position: 'relative', zIndex: 10 }}>
+          <h2 className="log-section-title">What did you watch?</h2>
 
-          {!rewatchOf && !wishlistSeed && <MovieSearch onSelect={handleMovieSelect} />}
+          {!rewatchOf && !wishlistSeed && <>
+            {!manual && <MovieSearch onSelect={handleMovieSelect} />}
+            {hasTMDBKey() && <button type="button" className="btn btn-link" onClick={() => {
+              selection.current += 1;
+              setManual(!manual);
+              setForm(prev => ({ ...buildInitialForm(null), dateWatched: prev.dateWatched, rating: prev.rating, notes: prev.notes }));
+              setDuplicateLogId(null);
+            }}>{manual ? 'Search for a film instead' : 'Can’t find it? Add manually'}</button>}
+          </>}
 
           {duplicateLogId && !rewatchOf && (
             <div className="log-duplicate-warn">
               <AlertCircle size={15} />
-              You've already logged <strong>{form.title}</strong>. This will be saved as a new diary entry and the watch count will update automatically.
+              You've watched <strong>{form.title}</strong> before. This will add another watch.
             </div>
           )}
 
@@ -265,17 +304,17 @@ export default function LogWatch() {
             </div>
           )}
 
-          {!hasTMDBKey() && !rewatchOf && (
+          {manual && !rewatchOf && !wishlistSeed && (
             <div className="input-group">
-              <label>Title</label>
+              <label htmlFor="watch-title">Title</label>
               <input
-                type="text" className="input" placeholder="Enter movie or TV series name"
+                id="watch-title" type="text" className="input" placeholder="Enter movie or TV series name"
                 value={form.title} onChange={(e) => updateField('title', e.target.value)} required
               />
             </div>
           )}
 
-          <div className="log-row">
+          {manual && !rewatchOf && !wishlistSeed && <div className="log-row">
             <div className="input-group">
               <label>Type</label>
               <div className="log-type-toggle">
@@ -288,24 +327,34 @@ export default function LogWatch() {
               </div>
             </div>
             <div className="input-group">
-              <label>Year</label>
-              <input type="text" className="input" placeholder="2024" value={form.year} onChange={(e) => updateField('year', e.target.value)} />
+              <label htmlFor="log-year">Year</label>
+              <input id="log-year" type="text" className="input" placeholder="2024" value={form.year} onChange={(e) => updateField('year', e.target.value)} />
             </div>
-          </div>
-        </div>
+          </div>}
+        </div>}
 
+        {form.type === 'tv_series' && <EpisodePicker key={`${form.tmdbId || form.movieId || 'manual'}`} value={form.episode || null} tmdbId={form.tmdbId} onChange={value => updateField('episode', value)} />}
+        {form.episode && <label><input type="checkbox" checked={!!form.allowRewatch} onChange={e => updateField('allowRewatch', e.target.checked)} /> This is an intentional rewatch of this episode</label>}
+        <section className="log-section card">
+          <div className="input-group"><label htmlFor="watch-date">Date watched</label>
+            <input id="watch-date" type="date" className="input" value={form.dateWatched} onChange={e => updateField('dateWatched', e.target.value)} required />
+          </div>
+          <div className="input-group"><span id="watch-rating-label">Your rating <span className="text-muted">— optional</span></span>
+            <StarRating value={form.rating} onChange={v => updateField('rating', v)} />
+          </div>
+          <div className="input-group"><label htmlFor="watch-note">Your note — optional</label>
+            <textarea id="watch-note" className="textarea" placeholder="What did you think?" value={form.notes} onChange={e => updateField('notes', e.target.value)} rows={3} />
+          </div>
+        </section>
+        <details className="quiet-disclosure log-extras"><summary>Add more details <span className="text-muted">— optional</span></summary>
         {/* Watch Details */}
         <div className="log-section glass-card-static">
           <h3 className="log-section-title"><Tag size={18} /> Watch Details</h3>
 
           <div className="log-row">
             <div className="input-group">
-              <label>Date Watched</label>
-              <input type="date" className="input" value={form.dateWatched} onChange={(e) => updateField('dateWatched', e.target.value)} />
-            </div>
-            <div className="input-group">
-              <label>Industry</label>
-              <select className="select" value={form.industry} onChange={(e) => updateField('industry', e.target.value)}>
+              <label htmlFor="log-industry">Industry</label>
+              <select id="log-industry" className="select" value={form.industry} onChange={(e) => updateField('industry', e.target.value)}>
                 <option value="">Select industry</option>
                 {INDUSTRY_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
               </select>
@@ -314,12 +363,12 @@ export default function LogWatch() {
 
           <div className="log-row">
             <div className="input-group">
-              <label>Category / Genre Tag</label>
-              <input type="text" className="input" placeholder="love, action, thriller..." value={form.category} onChange={(e) => updateField('category', e.target.value)} />
+              <label htmlFor="log-category-genre-tag">Category / Genre Tag</label>
+              <input id="log-category-genre-tag" type="text" className="input" placeholder="love, action, thriller..." value={form.category} onChange={(e) => updateField('category', e.target.value)} />
             </div>
             <div className="input-group">
-              <label>Platform</label>
-              <select className="select" value={form.platform} onChange={(e) => updateField('platform', e.target.value)}>
+              <label htmlFor="log-platform">Platform</label>
+              <select id="log-platform" className="select" value={form.platform} onChange={(e) => updateField('platform', e.target.value)}>
                 <option value="">Where did you watch?</option>
                 {PLATFORM_OPTIONS.map(p => <option key={p} value={p}>{p}</option>)}
               </select>
@@ -328,8 +377,8 @@ export default function LogWatch() {
 
           <div className="log-row">
             <div className="input-group">
-              <label>Watched With</label>
-              <select className="select" value={form.watchedWith} onChange={(e) => updateField('watchedWith', e.target.value)}>
+              <label htmlFor="log-watched-with">Watched With</label>
+              <select id="log-watched-with" className="select" value={form.watchedWith} onChange={(e) => updateField('watchedWith', e.target.value)}>
                 <option value="">Who did you watch with?</option>
                 <option value="solo">Solo 🎧</option>
                 <option value="family">Family 👨‍👩‍👧</option>
@@ -338,15 +387,11 @@ export default function LogWatch() {
               </select>
             </div>
             <div className="input-group">
-              <label>Occasion</label>
-              <input type="text" className="input" placeholder="Birthday, Diwali, rainy day..." value={form.occasion} onChange={(e) => updateField('occasion', e.target.value)} />
+              <label htmlFor="log-occasion">Occasion</label>
+              <input id="log-occasion" type="text" className="input" placeholder="Birthday, Diwali, rainy day..." value={form.occasion} onChange={(e) => updateField('occasion', e.target.value)} />
             </div>
           </div>
 
-          <div className="input-group">
-            <label>Your Rating</label>
-            <StarRating value={form.rating} onChange={(v) => updateField('rating', v)} />
-          </div>
         </div>
 
         {/* Cast & Crew */}
@@ -354,8 +399,8 @@ export default function LogWatch() {
           <h3 className="log-section-title"><Users size={18} /> Cast & Crew</h3>
 
           <div className="input-group">
-            <label>Director</label>
-            <input type="text" className="input" placeholder="Director name" value={form.director} onChange={(e) => updateField('director', e.target.value)} />
+            <label htmlFor="log-director">Director</label>
+            <input id="log-director" type="text" className="input" placeholder="Director name" value={form.director} onChange={(e) => updateField('director', e.target.value)} />
           </div>
 
           <div className="log-row">
@@ -389,7 +434,7 @@ export default function LogWatch() {
 
         {/* Mood */}
         <div className="log-section glass-card-static">
-          <h3 className="log-section-title">🎭 Your Mood</h3>
+          <h3 className="log-section-title">How did you feel?</h3>
           <MoodPicker value={form.moodBefore} onChange={(v) => updateField('moodBefore', v)} label="How were you feeling BEFORE watching?" id="mood-before" />
           <div style={{ marginTop: '16px' }}>
             <MoodPicker value={form.moodAfter} onChange={(v) => updateField('moodAfter', v)} label="How did you feel AFTER watching? (optional)" id="mood-after" />
@@ -398,19 +443,14 @@ export default function LogWatch() {
 
         {/* Songs & Quotes */}
         <div className="log-section glass-card-static">
-          <h3 className="log-section-title">🎵 Songs & Quotes</h3>
+          <h3 className="log-section-title">Songs & quotes</h3>
           <SongEntry songs={form.favouriteSongs} onChange={(v) => updateField('favouriteSongs', v)} movieTitle={form.title} />
           <div style={{ marginTop: '20px' }}>
             <QuoteEntry quotes={form.favouriteQuotes} onChange={(v) => updateField('favouriteQuotes', v)} />
           </div>
         </div>
 
-        {/* Notes */}
-        <div className="log-section glass-card-static">
-          <h3 className="log-section-title">📝 Notes</h3>
-          <textarea className="textarea" placeholder="Any personal thoughts, memories, or context about this watch..." value={form.notes} onChange={(e) => updateField('notes', e.target.value)} rows={4} />
-        </div>
-
+        </details>
         <div className="log-submit">
           <button type="submit" className="btn btn-primary btn-lg log-submit-btn" disabled={saving}>
             <Save size={18} />

@@ -8,3 +8,10 @@ server
 npm-debug.log*
 .env
 .env.*
+.vercel
+coverage
+test-results
+playwright-report
+blob-report
+.audit-report.json
+eslint-report.json

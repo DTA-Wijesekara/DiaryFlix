@@ -3,6 +3,8 @@ jest.mock('../db', () => ({
   closePool: jest.fn(() => Promise.resolve()),
   getPool:   jest.fn(),
   query:     jest.fn(),
+  transaction: (fn) => fn(),
+  findAuthUser: async (id) => ({ id, email: 'test@example.com', role: id === 'admin_test' ? 'admin' : 'user', is_active: true, auth_version: 0, email_verified_at: new Date() }),
 }));
 
 const request = require('supertest');
@@ -43,8 +45,10 @@ describe('GET /api/admin/users', () => {
 describe('PUT /api/admin/users/:id/role', () => {
   test('15. blocks demoting the last active admin', async () => {
     query
-      .mockResolvedValueOnce({ rows: [{ cnt: 1 }] })           // only 1 active admin
-      .mockResolvedValueOnce({ rows: [{ role: 'admin' }] });   // target is admin
+      .mockResolvedValueOnce({ rows: [] }) // advisory lock
+      .mockResolvedValueOnce({ rows: [{ role: 'admin', is_active: true, email_verified_at: new Date(), auth_version: 0 }] }) // actor
+      .mockResolvedValueOnce({ rows: [{ role: 'admin', is_active: true }] }) // target
+      .mockResolvedValueOnce({ rows: [{ cnt: 1 }] });
 
     const res = await request(app)
       .put('/api/admin/users/admin_lonely/role')

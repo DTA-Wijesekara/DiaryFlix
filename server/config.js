@@ -3,7 +3,7 @@
 const path = require('path');
 const crypto = require('crypto');
 
-require('dotenv').config({ path: path.join(__dirname, '.env') });
+require('dotenv').config({ quiet: true, path: path.join(__dirname, '.env') });
 
 const isProd = process.env.NODE_ENV === 'production';
 

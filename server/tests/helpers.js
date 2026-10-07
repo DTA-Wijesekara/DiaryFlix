@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 
 function makeToken(overrides = {}) {
   const payload = {
+    version: 0,
     id: 'user_test',
     email: 'test@example.com',
     role: 'user',

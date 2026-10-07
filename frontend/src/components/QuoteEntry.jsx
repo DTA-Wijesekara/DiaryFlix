@@ -1,4 +1,3 @@
-import React from 'react';
 import { Plus, X, Quote } from 'lucide-react';
 import './QuoteEntry.css';
 
