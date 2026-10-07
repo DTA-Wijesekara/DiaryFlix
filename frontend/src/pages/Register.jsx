@@ -69,11 +69,13 @@ export default function Register() {
               <p>Name your journal and create an account.</p>
             </div>
 
+            {import.meta.env.VITE_GOOGLE_CLIENT_ID && <>
             <div className="auth-google">
               <GoogleSignInButton onCredential={handleGoogle} onError={(err) => setToast({ message: err.message, type: 'error' })} />
             </div>
 
-            <div className="auth-divider"><span>or</span></div>
+            <div className="auth-divider"><span>or use email</span></div>
+            </>}
 
             <form className="auth-form" onSubmit={handleSubmit} noValidate>
               <div className="auth-input-group">

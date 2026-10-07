@@ -2,7 +2,7 @@ import { episodeLabel } from '../services/series';
 import DiaryNavigation from '../components/DiaryNavigation';
 import useLogRevision from '../hooks/useLogRevision';
 import { useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { BookOpen, ChevronLeft, ChevronRight, PlusCircle, Star, Film, Tv } from 'lucide-react';
 import { getAllLogs } from '../services/storage';
 import { getPosterUrl } from '../services/tmdb';
@@ -42,6 +42,9 @@ function groupLogsByDay(logs) {
 }
 
 export default function Diary() {
+  const [searchParams] = useSearchParams();
+  const requestedYear = Number(searchParams.get('year'));
+  const hasRequestedYear = Number.isInteger(requestedYear) && requestedYear > 0 && requestedYear <= 9999;
   const revision = useLogRevision();
   const navigate = useNavigate();
   const logs = useMemo(() => { void revision; return getAllLogs(); }, [revision]);
@@ -51,10 +54,11 @@ export default function Diary() {
   const currentYear = today.getFullYear();
   const [query, setQuery] = useState('');
   const [contentType, setContentType] = useState('all');
+  const [minRating, setMinRating] = useState(0);
   const [allDates, setAllDates] = useState(false);
   const [viewMonth, setViewMonth] = useState({
-    year: today.getFullYear(),
-    month: today.getMonth(),
+    year: hasRequestedYear ? requestedYear : today.getFullYear(),
+    month: hasRequestedYear ? -1 : today.getMonth(),
   });
 
   const years = useMemo(() => {
@@ -65,14 +69,15 @@ export default function Diary() {
   }, [groups, currentYear]);
 
   const filteredGroups = useMemo(() => {
-    return groups.filter(g => allDates || (g.date.getFullYear() === viewMonth.year && g.date.getMonth() === viewMonth.month)).map(g => ({ ...g, items: g.items.filter(log => (contentType === 'all' || log.type === contentType) && `${log.title} ${log.notes || ''}`.toLowerCase().includes(query.toLowerCase())) })).filter(g => g.items.length);
-  }, [groups, viewMonth, allDates, query, contentType]);
+    return groups.filter(g => allDates || (g.date.getFullYear() === viewMonth.year && (viewMonth.month === -1 || g.date.getMonth() === viewMonth.month))).map(g => ({ ...g, items: g.items.filter(log => (allDates || !!log.dateWatched) && (log.rating || 0) >= minRating && (contentType === 'all' || log.type === contentType) && `${log.title} ${log.notes || ''}`.toLowerCase().includes(query.toLowerCase())) })).filter(g => g.items.length);
+  }, [groups, viewMonth, allDates, query, contentType, minRating]);
 
   const entriesThisMonth = filteredGroups.reduce((sum, g) => sum + g.items.length, 0);
   const daysWithEntry = filteredGroups.length;
 
   const stepMonth = (delta) => {
     setViewMonth(prev => {
+      if (prev.month === -1) return {year: prev.year + delta, month: -1};
       const d = new Date(prev.year, prev.month + delta, 1);
       return { year: d.getFullYear(), month: d.getMonth() };
     });
@@ -88,7 +93,7 @@ export default function Diary() {
           <h1>My diary</h1>
           <p>
             {entriesThisMonth > 0
-              ? <>{entriesThisMonth} {entriesThisMonth === 1 ? 'film' : 'films'} across {daysWithEntry} {daysWithEntry === 1 ? 'day' : 'days'} {allDates ? 'in your diary' : 'this month'}.</>
+              ? <>{entriesThisMonth} {entriesThisMonth === 1 ? 'entry' : 'entries'} across {daysWithEntry} {daysWithEntry === 1 ? 'day' : 'days'} {allDates ? 'in your diary' : viewMonth.month === -1 ? `in ${viewMonth.year}` : 'this month'}.</>
               : <>Find a past watch or add something new.</>}
           </p>
         </div>
@@ -99,24 +104,25 @@ export default function Diary() {
       </div>
 
       <DiaryNavigation />
-      <label>Show <select className="input" aria-label="Content type" value={contentType} onChange={e => setContentType(e.target.value)}><option value="all">All</option><option value="movie">Films</option><option value="tv_series">TV series</option></select></label>
+      <div className="journal-filters"><label>Show <select className="input" aria-label="Content type" value={contentType} onChange={e => setContentType(e.target.value)}><option value="all">All</option><option value="movie">Films</option><option value="tv_series">TV series</option></select></label><label>Rating<select className="select" aria-label="Minimum rating" value={minRating} onChange={e => setMinRating(Number(e.target.value))}><option value="0">Any rating</option><option value="7">7 and above</option><option value="9">9 and above</option></select></label></div>
       <div className="diary-searchbar">
         <input className="input" aria-label="Search diary" placeholder="Search films or your notes" value={query} onChange={e => setQuery(e.target.value)} />
         <button className="btn btn-secondary" aria-pressed={allDates} onClick={() => setAllDates(!allDates)}>{allDates ? 'Choose month' : 'All dates'}</button>
       </div>
       {!allDates && <div className="diary-monthbar">
-        <button className="diary-nav-btn" onClick={() => stepMonth(-1)} aria-label="Previous month">
+        <button className="diary-nav-btn" onClick={() => stepMonth(-1)} aria-label={viewMonth.month === -1 ? 'Previous year' : 'Previous month'}>
           <ChevronLeft size={18} />
         </button>
         <div className="diary-month-selectors">
           <select className="select" aria-label="Month" value={viewMonth.month} onChange={e => goToMonth(viewMonth.year, Number(e.target.value))}>
+            <option value="-1">All months</option>
             {MONTHS.map((month, i) => <option key={month} value={i}>{month}</option>)}
           </select>
           <select className="select" aria-label="Year" value={viewMonth.year} onChange={e => goToMonth(Number(e.target.value), viewMonth.month)}>
             {[...new Set([...years, viewMonth.year])].sort((a,b) => b-a).map(year => <option key={year}>{year}</option>)}
           </select>
         </div>
-        <button className="diary-nav-btn" onClick={() => stepMonth(1)} aria-label="Next month">
+        <button className="diary-nav-btn" onClick={() => stepMonth(1)} aria-label={viewMonth.month === -1 ? 'Next year' : 'Next month'}>
           <ChevronRight size={18} />
         </button>
       </div>}

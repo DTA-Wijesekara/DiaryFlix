@@ -4,6 +4,10 @@ A personal film and TV diary built with React, Express, and PostgreSQL / Neon.
 
 Record dated watches, ratings, moods, notes, favourite songs and quotes. Track TV episodes, keep a watchlist, browse recommendations, and export your diary to CSV.
 
+The cinema journal theme uses warm paper, burgundy accents, and original illustrated posters. The public sample diary contains fictional titles. In your own diary, select **All months** and a year to revisit past watches, search titles and notes, or filter by rating. Mark a title as a **Favourite** from its detail page; the choice applies across its rewatches and is available in the library filter and CSV export.
+
+This release requires schema migration **7**, which adds the per-user title favourite flag without removing existing records. Deploy the migrated backend together with the updated frontend.
+
 ## Repository layout
 
 ```text

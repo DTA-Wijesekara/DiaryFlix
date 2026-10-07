@@ -3,7 +3,7 @@ import useLogRevision from '../hooks/useLogRevision';
 import { useMemo, useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  PlusCircle, ArrowRight, Calendar, Film, BookOpen, Sparkles, Bookmark
+  PlusCircle, ArrowRight, Calendar, Film, BookOpen, Sparkles, Bookmark, Heart
 } from 'lucide-react';
 import { getAllLogs } from '../services/storage';
 import { getAllWishlist, bucketWishlist } from '../services/wishlist';
@@ -89,6 +89,11 @@ export default function Dashboard() {
         </div>
       </header>
 
+      <section className="dash-memory-links" aria-label="Explore your memories">
+        <Link to="/library?favourites=true"><Heart size={19} /><strong>The ones you love</strong><span>Find your personal favourites.</span></Link>
+        <Link to={`/diary?year=${today.getFullYear()}`}><Calendar size={19} /><strong>A year in films</strong><span>Turn back to a year in your diary.</span></Link>
+        <Link to="/rewatch"><Sparkles size={19} /><strong>Worth another watch</strong><span>Rediscover something you enjoyed.</span></Link>
+      </section>
       {/* Wishlist due / overdue */}
       <WishlistDueBanner />
 
@@ -130,6 +135,7 @@ export default function Dashboard() {
                 <li key={log.id}>
                   <Link to={`/movie/${log.id}`} className="dash-recent-item unstyled-link">
                     <DateStamp dateString={log.dateWatched} />
+                    {log.posterPath && <img className="dash-recent-poster" src={getPosterUrl(log.posterPath, 'w92')} alt="" loading="lazy" />}
                     <div className="dash-recent-body">
                       <span className="dash-recent-title">{log.title}{log.type === 'tv_series' && <small style={{display:'block'}}>{episodeLabel(log)}</small>}</span>
                       <span className="dash-recent-meta">

@@ -254,3 +254,21 @@ test('admin seeding cannot bypass the three-admin cap',async()=>{
   finally {Object.assign(config.adminSeed,previous);}
   expect((await query("SELECT COUNT(*)::int AS n FROM users WHERE role='admin'")).rows[0].n).toBe(3);
 });
+
+
+test('favourites belong to the owner and persist across rewatches and log edits',async()=>{
+  const first=await auth(request(app).post('/logs')).send({title:'A Favourite',type:'movie',runtime:100});
+  const movieId=first.body.movieId;
+  const endpoint=`/logs/titles/${movieId}/favourite`;
+  expect((await auth(request(app).patch(endpoint)).send({isFavourite:'true'})).status).toBe(400);
+  expect((await auth(request(app).patch(endpoint)).send({isFavourite:true})).body.isFavourite).toBe(true);
+  const repeat=await auth(request(app).post('/logs')).send({movieId,title:'A Favourite',type:'movie',runtime:100});
+  expect(repeat.body.isFavourite).toBe(true);
+  const edit=await auth(request(app).put(`/logs/${first.body.id}`)).send({...first.body,notes:'A lasting memory'});
+  expect(edit.body.isFavourite).toBe(true);
+  await query("INSERT INTO users(id,email,display_name,email_verified_at) VALUES ('outsider','outsider@example.com','Other',NOW())");
+  const outsider=jwt.sign({id:'outsider',version:0},process.env.JWT_SECRET);
+  expect((await request(app).patch(endpoint).set('Authorization','Bearer '+outsider).send({isFavourite:false})).status).toBe(404);
+  expect((await auth(request(app).get(`/logs/${first.body.id}`))).body.isFavourite).toBe(true);
+  expect((await auth(request(app).patch(endpoint)).send({isFavourite:false})).body.isFavourite).toBe(false);
+});

@@ -2,7 +2,7 @@ const { test, expect } = require('@playwright/test');
 const user = { id: 'owner', email: 'owner@example.com', displayName: 'Owner', role: 'user', avatar:'O' };
 const seed = [1,2,3].map(i=>({ id:'watch-'+i, movieId:'film', tmdbId:12, title:'Example Film', type:'movie', dateWatched:'2026-09-01', rating:8, rewatchCount:2, runtime:90, genres:[], actors:[], actresses:[] }));
 async function mockAPI(page, options={}) {
-  let logs=structuredClone(seed);
+  let logs=structuredClone(options.logs || seed);
   await page.route('**/*',async route=>{
     const url=new URL(route.request().url());
     if(url.port==='5179') return route.continue();
@@ -16,6 +16,7 @@ async function mockAPI(page, options={}) {
       if(route.request().method()==='POST') { const entry=route.request().postDataJSON(); body={...entry,id:'new-watch',movieId:entry.movieId||'new-film'}; logs.unshift(body); }
       else { if(options.waitLogs) await options.waitLogs; body=logs; }
     }
+    else if(path.startsWith('/api/logs/titles/') && path.endsWith('/favourite')) { const id=path.split('/')[4]; const {isFavourite}=route.request().postDataJSON(); logs=logs.map(log=>log.movieId===id?{...log,isFavourite}:log); body={id,isFavourite}; }
     else if(path==='/api/wishlist') body=[{id:'wish',title:'Planned Film',type:'movie'}];
     else if(path==='/api/recommendations') body={recommendations:[],fallback:false};
     else body={};
@@ -296,4 +297,49 @@ test('admin dashboard shows three-admin limit and blocks unverified promotion',a
   await page.getByRole('button',{name:/Pending Person/}).click();
   await expect(page.locator('.admin-role-select option[value="admin"]')).toBeDisabled();
   await expect(page.getByText('2 diary entries',{exact:true})).toBeVisible();
+});
+
+
+test('cinema landing has working sample filters and no mobile overflow',async({page})=>{
+  await mockAPI(page);
+  for(const width of [390,1365]) {
+    await page.setViewportSize({width,height:900}); await page.goto('/');
+    await expect(page.getByRole('heading',{name:'Loved the film. Forgotten the name?'})).toBeVisible();
+    await page.getByRole('button',{name:'Watched in 2015',exact:true}).click();
+    await expect(page.locator('.sample-entry')).toHaveCount(2);
+    await page.getByRole('button',{name:'All memories',exact:true}).click();
+    await expect(page.locator('.sample-entry')).toHaveCount(3);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
+    await page.screenshot({path:`test-results/cinema-landing-${width}.png`,fullPage:true});
+  }
+  await page.goto('/login');
+  await page.screenshot({path:'test-results/cinema-login-desktop.png',fullPage:true});
+});
+test('whole-year diary finds entries across months using watch year and notes',async({page})=>{
+  await mockAPI(page,{logs:[
+    {...seed[0],id:'jan',title:'January Memory',year:'2010',dateWatched:'2015-01-12',notes:'Rainy afternoon'},
+    {...seed[0],id:'dec',title:'December Memory',dateWatched:'2015-12-20'},
+    {...seed[0],id:'later',title:'Later Memory',dateWatched:'2024-01-01'}
+  ]});
+  await login(page); await expect(page.locator('.dash-hello')).toBeVisible();
+  await page.goto('/diary?year=2015');
+  await expect(page.getByLabel('Month',{exact:true})).toHaveValue('-1');
+  await expect(page.locator('.diary-entry')).toHaveCount(2);
+  await page.getByLabel('Search diary').fill('rainy');
+  await expect(page.locator('.diary-entry')).toHaveCount(1);
+  await expect(page.getByRole('heading',{name:/January Memory/})).toBeVisible();
+});
+test('favourite applies to a title across watches and persists after reload',async({page})=>{
+  await mockAPI(page); await login(page); await expect(page.locator('.dash-hello')).toBeVisible();
+  await page.goto('/movie/watch-1');
+  await page.getByRole('button',{name:'Add to favourites',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Favourite',exact:true})).toHaveAttribute('aria-pressed','true');
+  await page.reload();
+  await expect(page.getByRole('button',{name:'Favourite',exact:true})).toHaveAttribute('aria-pressed','true');
+  await page.goto('/library?favourites=true');
+  await expect(page.locator('.movie-card')).toHaveCount(1);
+  await page.locator('.movie-card').click();
+  await page.getByRole('button',{name:'Favourite',exact:true}).click();
+  await page.goto('/library?favourites=true');
+  await expect(page.locator('.movie-card')).toHaveCount(0);
 });

@@ -45,6 +45,10 @@ async function migrate() {
       await require('./lib/tvMigration')(query);
       await query('INSERT INTO schema_migrations(version) VALUES (6)');
     });
+    if (!applied.has(7)) await transaction(async () => {
+      await query('ALTER TABLE movies ADD COLUMN is_favourite BOOLEAN NOT NULL DEFAULT FALSE');
+      await query('INSERT INTO schema_migrations(version) VALUES (7)');
+    });
     await maybeSeedAdmin();
   } finally {
     await client.query('SELECT pg_advisory_unlock(734921)');

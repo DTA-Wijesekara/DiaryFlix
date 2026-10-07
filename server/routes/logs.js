@@ -168,7 +168,7 @@ const LOG_SELECT = `
     wl.created_at       AS "createdAt",
     wl.updated_at       AS "updatedAt",
     m.tmdb_id           AS "tmdbId",
-    m.title, m.type, m.year,
+    m.title, m.type, m.year, m.is_favourite AS "isFavourite",
     m.poster_path       AS "posterPath",
     m.backdrop_path     AS "backdropPath",
     m.overview,
@@ -181,6 +181,15 @@ const LOG_SELECT = `
 `;
 
 // ── GET /logs ────────────────────────────────────────────────────────────────
+
+router.patch('/titles/:movieId/favourite', asyncHandler(async (req, res) => {
+  if (typeof req.body.isFavourite !== 'boolean') throw new HttpError(400, 'isFavourite must be a boolean');
+  const result = await query('UPDATE movies SET is_favourite=@isFavourite,updated_at=NOW() WHERE id=@movieId AND user_id=@userId RETURNING id,is_favourite AS "isFavourite"', {
+    movieId: req.params.movieId, userId: req.user.id, isFavourite: req.body.isFavourite,
+  });
+  if (!result.rows.length) throw new HttpError(404, 'Title not found');
+  res.json(result.rows[0]);
+}));
 
 router.get('/', asyncHandler(async (req, res) => {
   const result = await query(`
